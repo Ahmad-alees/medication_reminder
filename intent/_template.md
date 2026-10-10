@@ -23,7 +23,7 @@ HOW TO USE THIS TEMPLATE (for the agent)
 
 
 ## 3. What should happen instead
-<!-- Describe the wanted behavior in plain words, step by step as the person would experience it. -->
+<!-- Wanted behavior in plain words, step by step as the person would experience it. -->
 
 
 ## 4. Example scenarios
