@@ -17,63 +17,77 @@
 
 ---
 
-## 2. Style Direction: Soft & Friendly
+## 2. Style Direction: Calm Utility
 
-- Generously rounded shapes (cards, buttons, chips, sheets).
-- Soft, low-contrast shadows in light mode; tonal layers (no shadows) in dark mode.
-- Simple rounded icons + gentle flat illustrations on empty and onboarding screens.
-- Lively, celebratory motion when a dose is taken; playful press feedback on buttons.
-- No gradients, no photos, no heavy textures.
+- Calm, friendly surfaces with clear hierarchy and generous touch targets.
+- Light mode uses a subtle cool-green background and soft shadows; dark mode uses tonal blue layers with no shadows.
+- Use rounded Material icons and simple flat illustrations only for empty and onboarding screens.
+- Motion is brief and functional; it never delays saving a dose or firing a reminder.
+- No gradients, photos, or heavy textures.
 
 ---
 
 ## 3. Color
 
-### 3.1 Brand palette (Coolors palette 3)
+### 3.1 Brand palette (Dhakkirni source design)
 
 | Token | Hex | Role |
 |---|---|---|
-| `orange` | `#FF6F00` | Main action, alarm, FAB, attention |
-| `lime` | `#EAF8BF` | Light-mode app background |
-| `teal` | `#006992` | Primary brand (app bar, active items, links) |
-| `blue` | `#27476E` | Dark-mode surfaces, tertiary |
-| `navy` | `#001D4A` | Main text, dark-mode background, text on orange |
+| `background` | `#F6F8F3` | Light-mode app background |
+| `surface` | `#FFFFFF` | Cards and inputs in light mode |
+| `outline` | `#D5DDE3` | Dividers and input outlines |
+| `primary` | `#2B6F8A` | Brand, active items, links |
+| `primaryDark` | `#7DBAD3` | Primary in dark mode |
+| `primaryTint` | `#DCEBF1` | Soft primary backgrounds |
+| `accent` | `#E9A27B` | Main action, alarm, FAB, attention |
+| `onAccent` | `#1B2F45` | Text and icons on accent |
+| `text` | `#1B2F45` | Main text in light mode |
+| `textSecondary` | `#5A6B7B` | Secondary text in light mode |
+| `darkBackground` | `#0F1E2E` | Dark-mode app background |
+| `darkSurface` | `#1A2D40` | Dark-mode cards and app bars |
+| `darkRaised` | `#223A52` | Raised dark surfaces and tint |
+| `darkText` | `#E8EEF3` | Main text in dark mode |
+| `darkTextSecondary` | `#A9B8C6` | Secondary text in dark mode |
 
-### 3.2 Added semantic colors (not in the palette)
+### 3.2 Semantic colors
 
 | Token | Hex | Use |
 |---|---|---|
-| `success` | `#C2EABD` | "Taken" chip/background (from palette 4) |
-| `successStrong` | `#2E7D32` | Success icons and text accents |
-| `error` | `#D32F2F` | Missed dose, destructive actions |
-| `errorText` | `#B71C1C` | Error text on light tinted backgrounds |
-| `errorContainer` | `#FDECEA` | Missed-dose chip background (light) |
-| `warningContainer` | `#FFE8D6` | Snoozed / low-stock chip background (light) |
-| `tealLight` | `#5BB8DC` | Primary in dark mode (derived for contrast) |
-| `errorDark` | `#FF8A80` | Error in dark mode |
-| `successContainerDark` | `#1E4D35` | "Taken" chip background in dark mode |
-| `white` | `#FFFFFF` | Cards (light), text on teal |
+| `successBackground` | `#DCEBDD` | Taken chip/background in light mode |
+| `successText` | `#2F6B3F` | Taken text in light mode |
+| `successIcon` | `#3F8A52` | Success icons |
+| `successBackgroundDark` | `#1F3D2C` | Taken chip/background in dark mode |
+| `successTextDark` | `#BFE3C6` | Taken text and icons in dark mode |
+| `errorBackground` | `#F8E4E1` | Missed-dose background in light mode |
+| `errorText` | `#A8433B` | Error text in light mode |
+| `error` | `#B5483F` | Destructive actions |
+| `errorDark` | `#F2A39B` | Error and destructive actions in dark mode |
+| `warningBackground` | `#FBEBDD` | Snoozed / low-stock background in light mode |
+| `warningText` | `#8A4B1F` | Warning text in light mode |
+| `warningBackgroundDark` | `#3B2E24` | Warning background in dark mode |
+| `warningTextDark` | `#F0B08C` | Warning text in dark mode |
+| `white` | `#FFFFFF` | Cards (light), text on primary |
 
 ### 3.3 Theme mapping
 
 | Role | Light | Dark |
 |---|---|---|
-| Scaffold background | `lime` `#EAF8BF` | `navy` `#001D4A` |
-| Card / surface | `white` | `blue` `#27476E` |
-| Primary | `teal` | `tealLight` |
-| On primary | `white` | `navy` |
-| Accent / main action | `orange` | `orange` |
-| On accent | `navy` | `navy` |
-| Main text | `navy` | `white` |
-| Secondary text | `navy` at 70% | `white` at 70% |
-| Divider / outline | `navy` at 12% | `white` at 16% |
+| Scaffold background | `background` `#F6F8F3` | `darkBackground` `#0F1E2E` |
+| Card / surface | `surface` | `darkSurface` `#1A2D40` |
+| Primary | `primary` | `primaryDark` |
+| On primary | `white` | `darkBackground` |
+| Accent / main action | `accent` | `accent` |
+| On accent | `onAccent` | `onAccent` |
+| Main text | `text` | `darkText` |
+| Secondary text | `textSecondary` | `darkTextSecondary` |
+| Divider / outline | `outline` | `darkOutline` `#2E4A66` |
 | Error | `error` | `errorDark` |
-| Taken (chip bg / text) | `success` / `navy` | `successContainerDark` / `success` |
+| Taken (chip bg / text) | `successBackground` / `successText` | `successBackgroundDark` / `successTextDark` |
 
 ### 3.4 Color rules
 
-- **Orange is for action and attention only.** Never use orange as body text or small text.
-- **Text on orange is always `navy`**, never white.
+- **Accent is for action and attention only.** Never use it as body text or small text.
+- **Text on accent is always `onAccent`**, never white.
 - Never use color alone to convey status. Always pair with an icon and a text label.
 - Do not introduce new colors without adding them here first.
 
@@ -81,26 +95,23 @@
 
 | Pair | Ratio | Verdict |
 |---|---|---|
-| `navy` on `orange` | ~5.9:1 | Pass (AA) |
-| `white` on `teal` | ~6.1:1 | Pass (AA) |
-| `navy` on `lime` | ~14.7:1 | Pass (AAA) |
-| `navy` on `white` | ~16.5:1 | Pass (AAA) |
-| `white` on `blue` | ~9.5:1 | Pass (AAA) |
-| `tealLight` on `navy` | ~7.3:1 | Pass (AAA) |
-| `orange` on `navy` | ~5.9:1 | Pass (AA) |
-| `errorText` on `errorContainer` | ~5.8:1 | Pass (AA) |
-| `white` on `orange` | ~2.8:1 | **Fail. Do not use** |
-| `orange` on `white` / `lime` | ~2.5–2.8:1 | **Fail for text. Icons/large shapes only** |
+| `onAccent` on `accent` | ~4.6:1 | Pass (AA) |
+| `white` on `primary` | ~5.1:1 | Pass (AA) |
+| `text` on `background` | high contrast | Pass (AA) |
+| `text` on `surface` | high contrast | Pass (AA) |
+| `darkText` on `darkSurface` | high contrast | Pass (AA) |
+| `errorText` on `errorBackground` | high contrast | Pass (AA) |
+| `accent` on `surface` | low contrast | **Fail for text. Icons/large shapes only** |
 
 ---
 
 ## 4. Typography
 
-**Font family: Tajawal** (Arabic + Latin). Use it for everything.
+**Font family: IBM Plex Sans Arabic** (Arabic + Latin). Use it for everything.
 
-- Available weights: 200, 300, 400, 500, 700, 800, 900. There is **no 600**.
+- Use weights 400, 500, and 700. There is no need to introduce a 600 weight.
 - No italics for Arabic text.
-- **Bundle the font files in `assets/fonts/`** and declare them in `pubspec.yaml`. The app is offline-first, so do not rely on downloading fonts at runtime.
+- Bundle the font files in `assets/fonts/` and declare them in `pubspec.yaml` before release. The app is offline-first, so do not rely on downloading fonts at runtime.
 
 ### 4.1 Type scale
 
@@ -135,11 +146,11 @@
 - Gap between cards: **12**
 - Section gap: **24**
 
-### 5.2 Corner radius (large, for the Soft & Friendly style)
+### 5.2 Corner radius
 
 | Element | Radius |
 |---|---|
-| Cards | 20 |
+| Cards | 16 |
 | Buttons | 16 |
 | Input fields | 14 |
 | Chips / day selectors / status pills | fully rounded (999) |
@@ -148,8 +159,8 @@
 
 ### 5.3 Elevation
 
-- **Light:** soft shadow `0 4 16 rgba(0, 29, 74, 0.08)` on cards; FAB `0 6 20 rgba(255, 111, 0, 0.30)`.
-- **Dark:** no shadows. Separate layers by tone (`navy` background → `blue` cards).
+- **Light:** soft shadow `0 4 16 rgba(27, 47, 69, 0.06)` on cards.
+- **Dark:** no shadows. Separate layers by tone (`darkBackground` background → `darkSurface` cards).
 
 ### 5.4 Touch targets
 
@@ -175,7 +186,7 @@
 
 - Set: **Material Symbols Rounded** (consistent with the soft style).
 - Size: 24dp default, 28–32dp inside prominent cards; stroke/weight 400–500.
-- Active nav item: filled variant in `teal`; inactive: outlined, secondary text color.
+- Active nav item: filled variant in `primary`; inactive: outlined, secondary text color.
 - Core icons: pill, clock/alarm, check-circle, close/cancel, snooze, more-vert, add, bar-chart, settings, inventory, warning, notifications.
 
 ### 7.2 Illustrations
@@ -192,18 +203,18 @@
 
 | Type | Style |
 |---|---|
-| **Primary (Taken / Save)** | Fill `orange`, text `navy` 16sp w700, height 56, radius 16 |
+| **Primary (Taken / Save)** | Fill `accent`, text `onAccent` 18sp w700, height 56, radius 16 |
 | **Secondary (Snooze)** | Outlined 1.5px `primary`, text `primary`, height 56, radius 16 |
 | **Text button** | `primary` text, no container, min target 48 |
 | **Destructive** | Fill `error`, text `white` (only inside confirm dialogs) |
-| **FAB (Add medication)** | `orange`, icon `navy`, 64×64, radius 20 |
+| **FAB (Add medication)** | `accent`, icon `onAccent`, 64×64, radius 20 |
 
 Pressed state: scale to 0.96 with 120ms ease-out, then spring back. Disabled: 38% opacity.
 
 ### 8.2 Dose card (core component)
 
-- Container: white (light) / `blue` (dark), radius 20, padding 16–20.
-- Row 1: pill icon in a 48dp circle (tint of `teal` at 12%), medicine name (`title`), 3-dot menu at the end.
+- Container: `surface` (light) / `darkSurface` (dark), radius 16, padding 16–20.
+- Row 1: pill icon in a 48dp circle (tint of `primary`), medicine name (`title`), 3-dot menu at the end.
 - Row 2: strength (`subtitle`), scheduled time (`subtitle`), status chip.
 - Upcoming/due card adds: **Taken** (primary) + **Snooze** (secondary) buttons below.
 - 3-dot menu: Edit time, Delete.
@@ -212,32 +223,32 @@ Pressed state: scale to 0.96 with 120ms ease-out, then spring back. Disabled: 38
 
 | State | Background (light) | Text/Icon | Icon |
 |---|---|---|---|
-| Upcoming | `orange` | `navy` | clock |
-| Taken | `success` | `navy` / `successStrong` icon | check |
-| Missed | `errorContainer` | `errorText` | close |
-| Snoozed | `warningContainer` | `navy` | snooze |
+| Upcoming | `accent` | `onAccent` | clock |
+| Taken | `successBackground` | `successText` / `successIcon` | check |
+| Missed | `errorBackground` | `errorText` | close |
+| Snoozed | `warningBackground` | `onAccent` | snooze |
 
 Pill shape, height 32, horizontal padding 12, `label` style, icon 18dp before text.
 
 ### 8.4 Today progress card
 
-- Large card at the top of Home: "3 من 5 جرعات اليوم", linear progress bar (`teal` fill on 12% track), height 12, fully rounded.
+- Large card at the top of Home: "3 من 5 جرعات اليوم", linear progress bar (`primary` fill on `primaryTint` track), height 12, fully rounded.
 
 ### 8.5 Inputs
 
-- Filled white (light) / `blue` (dark), radius 14, 1px outline at rest, 2px `primary` on focus, height 56.
+- Filled `surface` (light) / `darkSurface` (dark), radius 14, 1px outline at rest, 2px `primary` on focus, height 56.
 - Labels above or floating; error text in `errorText` with an icon.
-- Day-of-week selectors: 7 circular chips, 44–48dp; selected = `teal` fill + white text; unselected = outlined.
+- Day-of-week selectors: 7 circular chips, 44–48dp; selected = `primary` fill + white text; unselected = outlined.
 
 ### 8.6 Stock indicator
 
 - Progress bar + text "متبقي 12 حبة".
-- Below threshold: bar and chip switch to `orange` with label "الكمية منخفضة" and a warning icon.
+- Below threshold: bar and chip switch to `accent` with label "الكمية منخفضة" and a warning icon.
 
 ### 8.7 Bottom navigation
 
 - 4 items: اليوم · أدويتي · التقارير · الإعدادات.
-- Height 72, container `white`/`blue`, top radius 24, selected item has a pill indicator in `teal` at 14% and filled icon.
+- Height 72, container `surface`/`darkSurface`, top radius 24, selected item has a pill indicator in `primaryTint` and filled icon.
 
 ### 8.8 Dialogs & bottom sheets
 
@@ -246,21 +257,21 @@ Pill shape, height 32, horizontal padding 12, `label` style, icon 18dp before te
 
 ### 8.9 Snackbar / toast
 
-- Bottom floating, radius 16, `navy` background with white text (light) / `lime` background with `navy` text (dark). Max 4 seconds. Include "تراجع" (Undo) when the action is reversible.
+- Bottom floating, radius 16, `text` background with white text (light) / `darkRaised` background with `darkText` text (dark). Max 4 seconds. Include "تراجع" (Undo) when the action is reversible.
 
 ### 8.10 Alarm screen (full screen)
 
-- Background `navy` in both themes.
+- Background `darkBackground` in both themes.
 - Top: current time (`displayAlarm`, white).
-- Center: pill icon in a pulsing 160dp orange circle.
+- Center: pill icon in a pulsing 160dp `accent` circle.
 - Medicine name (`headline`, white) and strength + scheduled time (`subtitle`, white 80%).
-- Buttons stacked at bottom: **Taken** (orange primary) → **Snooze 10 min** (white outlined) → "إيقاف" text link.
+- Buttons stacked at bottom: **Taken** (accent primary) → **Snooze 10 min** (white outlined) → "إيقاف" text link.
 - **Escalation variant** (after repeated non-response): add a banner in `error` with the warning message (see section 11), keep the same buttons.
 
 ### 8.11 Reports
 
-- Adherence ring: 180dp, 14dp stroke, `teal` progress on 12% track, percentage in `display`.
-- Weekly bar chart: taken bars `successStrong`, missed bars `error`, rounded tops (radius 8), day labels `label`.
+- Adherence ring: 180dp, 14dp stroke, `primary` progress on `primaryTint` track, percentage in `display`.
+- Weekly bar chart: taken bars `successIcon`, missed bars `error`, rounded tops (radius 8), day labels `label`.
 - Stats row: three small cards (Taken, Missed, Snoozed) each with icon + number.
 - Log list grouped by day; each row: name, scheduled vs actual time, status icon.
 
@@ -270,7 +281,7 @@ Pill shape, height 32, horizontal padding 12, `label` style, icon 18dp before te
 
 | Moment | Behavior |
 |---|---|
-| **Dose taken (celebration)** | Check icon morphs and scales in (spring), a short confetti burst in `orange` / `success` / `teal`, card collapses to Taken state. Total ~700ms. Light haptic. |
+| **Dose taken (celebration)** | Check icon morphs and scales in (spring), a short confetti burst in `accent` / `successBackground` / `primary`, card collapses to Taken state. Total ~700ms. Light haptic. |
 | Button press | Scale 0.96, 120ms, then spring back. |
 | Screen transition | Shared-axis, 250ms, ease-out. Horizontal direction follows RTL/LTR. |
 | List item added/removed | Fade + slide, 200ms. |
@@ -337,12 +348,12 @@ Rules:
 
 ## 13. Flutter Implementation Notes
 
-- Tokens live in `lib/core/theme/app_theme.dart` (`AppColors`, `AppTheme.light()`, `AppTheme.dark()`).
+- Tokens live in `lib/app_theme.dart` (`AppColors`, `AppTheme.light()`, `AppTheme.dark()`).
 - Use `Theme.of(context).colorScheme` or `AppColors`. **Never hard-code hex values in widgets.**
-- Register Tajawal in `pubspec.yaml` (weights 400, 500, 700, 800) and set `fontFamily: 'Tajawal'` in `ThemeData`.
+- Register IBM Plex Sans Arabic in `pubspec.yaml` (weights 400, 500, 700) and set `fontFamily: 'IBM Plex Sans Arabic'` in `ThemeData`.
 - Icons: `Icons.*_rounded` (Material Icons Rounded).
 - Use `Directionality` from the locale; prefer `EdgeInsetsDirectional`, `AlignmentDirectional`.
-- Update radii in the theme to match section 5.2 (cards 20, buttons 16, inputs 14).
+- Keep radii in the theme aligned with section 5.2 (cards 16, buttons 16, inputs 14).
 
 ---
 

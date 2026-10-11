@@ -1,105 +1,398 @@
 import 'package:flutter/material.dart';
 
+import 'l10n/app_localizations.dart';
+
+import 'app_theme.dart';
+
 void main() {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
- @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
-      themeMode: ThemeMode.system,
-      home: const Scaffold(),
-    );
-  }
-}
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<MyApp> createState() => _MyAppState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _MyAppState extends State<MyApp> {
+  Locale _locale = const Locale('ar');
 
-  void _incrementCounter() {
+  void _toggleLocale() {
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _locale = _locale.languageCode == 'ar'
+          ? const Locale('en')
+          : const Locale('ar');
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      locale: _locale,
+      localizationsDelegates: S.localizationsDelegates,
+      supportedLocales: S.supportedLocales,
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: ThemeMode.system,
+      home: HomeScreen(onToggleLocale: _toggleLocale),
+    );
+  }
+}
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key, required this.onToggleLocale});
+
+  final VoidCallback onToggleLocale;
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int _selectedDay = 0;
+  int _selectedNavigation = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = S.of(context);
+    final colors = Theme.of(context).colorScheme;
+
     return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+      backgroundColor: AppColors.lime,
+      body: SafeArea(
+        child: CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+              sliver: SliverToBoxAdapter(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            strings.greeting,
+                            style: Theme.of(context).textTheme.headlineMedium,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            strings.todayDate,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: strings.changeLanguage,
+                      onPressed: widget.onToggleLocale,
+                      icon: const Icon(Icons.language_rounded),
+                    ),
+                  ],
+                ),
+              ),
             ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              sliver: SliverToBoxAdapter(
+                child: _WeekStrip(
+                  selectedDay: _selectedDay,
+                  onSelect: (day) => setState(() => _selectedDay = day),
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              sliver: SliverToBoxAdapter(
+                child: _ProgressCard(
+                  title: strings.dailyProgress,
+                  completedLabel: strings.completedDoses,
+                  nextLabel: strings.nextDose,
+                  nextDose: strings.nextDoseValue,
+                  primary: colors.primary,
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+              sliver: SliverToBoxAdapter(
+                child: Text(
+                  strings.todayDoses,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              sliver: SliverList.list(
+                children: [
+                  _DoseTile(
+                    medication: strings.firstMedication,
+                    detail: strings.firstMedicationDetail,
+                    time: strings.firstDoseTime,
+                    status: strings.pending,
+                    statusColor: colors.primary,
+                    icon: Icons.medication_liquid_rounded,
+                  ),
+                  const SizedBox(height: 12),
+                  _DoseTile(
+                    medication: strings.secondMedication,
+                    detail: strings.secondMedicationDetail,
+                    time: strings.secondDoseTime,
+                    status: strings.taken,
+                    statusColor: AppColors.successStrong,
+                    icon: Icons.vaccines_outlined,
+                  ),
+                ],
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 96)),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(strings.addMedicationComingSoon)),
+        ),
+        tooltip: strings.addMedication,
+        child: const Icon(Icons.add_rounded),
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedNavigation,
+        onDestinationSelected: (index) =>
+            setState(() => _selectedNavigation = index),
+        destinations: [
+          NavigationDestination(
+            icon: const Icon(Icons.today_outlined),
+            selectedIcon: const Icon(Icons.today_rounded),
+            label: strings.today,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.medication_outlined),
+            selectedIcon: const Icon(Icons.medication_rounded),
+            label: strings.medications,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.insert_chart_outlined_rounded),
+            selectedIcon: const Icon(Icons.insert_chart_rounded),
+            label: strings.reports,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.settings_outlined),
+            selectedIcon: const Icon(Icons.settings_rounded),
+            label: strings.settings,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WeekStrip extends StatelessWidget {
+  const _WeekStrip({required this.selectedDay, required this.onSelect});
+
+  final int selectedDay;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = S.of(context);
+    final primary = Theme.of(context).colorScheme.primary;
+    final days = [
+      strings.sunday,
+      strings.monday,
+      strings.tuesday,
+      strings.wednesday,
+      strings.thursday,
+      strings.friday,
+      strings.saturday,
+    ];
+
+    return SizedBox(
+      height: 76,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: days.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final selected = index == selectedDay;
+          return Semantics(
+            button: true,
+            selected: selected,
+            label: days[index],
+            child: GestureDetector(
+              onTap: () => onSelect(index),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 54,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: selected ? primary : AppColors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: selected ? primary : const Color(0xFFD5DDE3),
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      days[index].substring(0, 1),
+                      style: TextStyle(
+                        color: selected
+                            ? Colors.white
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${index + 12}',
+                      style: TextStyle(
+                        color: selected
+                            ? Colors.white
+                            : Theme.of(context).colorScheme.onSurface,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ProgressCard extends StatelessWidget {
+  const _ProgressCard({
+    required this.title,
+    required this.completedLabel,
+    required this.nextLabel,
+    required this.nextDose,
+    required this.primary,
+  });
+
+  final String title;
+  final String completedLabel;
+  final String nextLabel;
+  final String nextDose;
+  final Color primary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1020475B),
+            blurRadius: 16,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(title, style: Theme.of(context).textTheme.titleMedium),
+              Text('1/3', style: Theme.of(context).textTheme.titleMedium),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: 0.33,
+              minHeight: 10,
+              backgroundColor: const Color(0xFFDCEBF1),
+              valueColor: AlwaysStoppedAnimation(primary),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(completedLabel, style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Icon(Icons.schedule_rounded, size: 18, color: primary),
+              const SizedBox(width: 6),
+              Text(nextLabel, style: Theme.of(context).textTheme.bodyMedium),
+              const SizedBox(width: 4),
+              Text(nextDose, style: Theme.of(context).textTheme.titleSmall),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DoseTile extends StatelessWidget {
+  const _DoseTile({
+    required this.medication,
+    required this.detail,
+    required this.time,
+    required this.status,
+    required this.statusColor,
+    required this.icon,
+  });
+
+  final String medication;
+  final String detail;
+  final String time;
+  final String status;
+  final Color statusColor;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFD5DDE3)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 24,
+            backgroundColor: const Color(0xFFDCEBF1),
+            foregroundColor: AppColors.teal,
+            child: Icon(icon),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  medication,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 4),
+                Text(detail, style: Theme.of(context).textTheme.bodySmall),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(time, style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 4),
+              Text(status, style: TextStyle(color: statusColor, fontSize: 12)),
+            ],
+          ),
+        ],
       ),
     );
   }
