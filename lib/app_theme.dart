@@ -49,7 +49,7 @@ class AppColors {
 class AppTheme {
   AppTheme._();
 
-  static const String fontFamily = 'IBM Plex Sans Arabic';
+  static const String fontFamily = 'ThmanyahSans';
 
   // ── Light ──────────────────────────────────────────────
   static final ColorScheme _lightScheme = const ColorScheme(
@@ -155,8 +155,8 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.accent,
-          foregroundColor: AppColors.onAccent,
+          backgroundColor: AppColors.primary,
+          foregroundColor: AppColors.white,
           minimumSize: const Size.fromHeight(56),
           textStyle: const TextStyle(
             fontSize: 18,
@@ -184,8 +184,8 @@ class AppTheme {
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: AppColors.accent,
-        foregroundColor: AppColors.onAccent,
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       inputDecorationTheme: InputDecorationTheme(

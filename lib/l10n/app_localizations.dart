@@ -97,6 +97,126 @@ abstract class S {
     Locale('en'),
   ];
 
+  /// No description provided for @welcomeTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'ذكرني'**
+  String get welcomeTitle;
+
+  /// No description provided for @welcomeTagline.
+  ///
+  /// In ar, this message translates to:
+  /// **'نذكّرك، لتبقى بخير'**
+  String get welcomeTagline;
+
+  /// No description provided for @welcomeContinue.
+  ///
+  /// In ar, this message translates to:
+  /// **'اضغط للمتابعة'**
+  String get welcomeContinue;
+
+  /// No description provided for @appLogoDescription.
+  ///
+  /// In ar, this message translates to:
+  /// **'شعار تطبيق ذكرني'**
+  String get appLogoDescription;
+
+  /// No description provided for @onboardingSkip.
+  ///
+  /// In ar, this message translates to:
+  /// **'تخطّي'**
+  String get onboardingSkip;
+
+  /// No description provided for @onboardingBack.
+  ///
+  /// In ar, this message translates to:
+  /// **'رجوع'**
+  String get onboardingBack;
+
+  /// No description provided for @onboardingNext.
+  ///
+  /// In ar, this message translates to:
+  /// **'التالي'**
+  String get onboardingNext;
+
+  /// No description provided for @onboardingStart.
+  ///
+  /// In ar, this message translates to:
+  /// **'لنبدأ'**
+  String get onboardingStart;
+
+  /// No description provided for @onboardingStepOne.
+  ///
+  /// In ar, this message translates to:
+  /// **'الشاشة 1 من 3'**
+  String get onboardingStepOne;
+
+  /// No description provided for @onboardingStepTwo.
+  ///
+  /// In ar, this message translates to:
+  /// **'الشاشة 2 من 3'**
+  String get onboardingStepTwo;
+
+  /// No description provided for @onboardingStepThree.
+  ///
+  /// In ar, this message translates to:
+  /// **'الشاشة 3 من 3'**
+  String get onboardingStepThree;
+
+  /// No description provided for @onboardingStepOneTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'مرحبًا بك في ذكرني'**
+  String get onboardingStepOneTitle;
+
+  /// No description provided for @onboardingStepOneBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'نساعدك على تذكّر أدويتك في مواعيدها، بهدوء ودون تعقيد.'**
+  String get onboardingStepOneBody;
+
+  /// No description provided for @onboardingStepTwoTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'تذكير في الوقت المناسب'**
+  String get onboardingStepTwoTitle;
+
+  /// No description provided for @onboardingStepTwoBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'يصلك تذكير واضح عند موعد كل جرعة، مع اسم الدواء والكمية.'**
+  String get onboardingStepTwoBody;
+
+  /// No description provided for @onboardingStepThreeTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'تأكيد بلمسة واحدة'**
+  String get onboardingStepThreeTitle;
+
+  /// No description provided for @onboardingStepThreeBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'سجّل الجرعة بلمسة، وتابع التزامك يومًا بيوم.'**
+  String get onboardingStepThreeBody;
+
+  /// No description provided for @onboardingOneImageDescription.
+  ///
+  /// In ar, this message translates to:
+  /// **'رسم هاتف يعرض علامة تأكيد'**
+  String get onboardingOneImageDescription;
+
+  /// No description provided for @onboardingTwoImageDescription.
+  ///
+  /// In ar, this message translates to:
+  /// **'رسم ساعة مع جرس تنبيه'**
+  String get onboardingTwoImageDescription;
+
+  /// No description provided for @onboardingThreeImageDescription.
+  ///
+  /// In ar, this message translates to:
+  /// **'رسم علبة أدوية'**
+  String get onboardingThreeImageDescription;
+
   /// No description provided for @greeting.
   ///
   /// In ar, this message translates to:

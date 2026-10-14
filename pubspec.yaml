@@ -37,6 +37,7 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+  flutter_svg: ^2.3.0
 
 dev_dependencies:
   flutter_test:
@@ -60,6 +61,28 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/images/logo.png
+    - assets/images/logo.svg
+    - assets/images/onboarding_done.png
+    - assets/images/onboarding_time.png
+    - assets/images/onboarding_medication.png
+    - assets/images/onboarding_done.svg
+    - assets/images/onboarding_time.svg
+    - assets/images/onboarding_medication.svg
+
+  fonts:
+    - family: ThmanyahSans
+      fonts:
+        - asset: assets/fonts/thmanyahsans-Regular.otf
+          weight: 400
+        - asset: assets/fonts/thmanyahsans-Medium.otf
+          weight: 500
+        - asset: assets/fonts/thmanyahsans-Bold.otf
+          weight: 700
+        - asset: assets/fonts/thmanyahsans-Black.otf
+          weight: 900
 
   # To add assets to your application, add an assets section, like this:
   # assets:

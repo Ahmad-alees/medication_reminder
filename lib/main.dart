@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import 'l10n/app_localizations.dart';
 
@@ -36,7 +37,312 @@ class _MyAppState extends State<MyApp> {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: ThemeMode.system,
-      home: HomeScreen(onToggleLocale: _toggleLocale),
+      home: WelcomeScreen(onContinue: _openOnboarding),
+    );
+  }
+
+  void _openOnboarding(BuildContext context) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => OnboardingScreen(onFinish: _openHome),
+      ),
+    );
+  }
+
+  void _openHome(BuildContext context) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => HomeScreen(onToggleLocale: _toggleLocale),
+      ),
+    );
+  }
+}
+
+class WelcomeScreen extends StatelessWidget {
+  const WelcomeScreen({super.key, required this.onContinue});
+
+  final ValueChanged<BuildContext> onContinue;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = S.of(context);
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final logoSize = (constraints.maxWidth * 0.34).clamp(112.0, 150.0);
+
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+              child: Column(
+                children: [
+                  const Spacer(flex: 3),
+                  Semantics(
+                    image: true,
+                    label: strings.appLogoDescription,
+                    child: SvgPicture.asset(
+                      'assets/images/logo.svg',
+                      width: logoSize,
+                      height: logoSize,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  Text(
+                    strings.welcomeTitle,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.displayLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 320),
+                    child: Text(
+                      strings.welcomeTagline,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyLarge,
+                    ),
+                  ),
+                  const Spacer(flex: 4),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => onContinue(context),
+                      child: Text(strings.welcomeContinue),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class OnboardingScreen extends StatefulWidget {
+  const OnboardingScreen({super.key, required this.onFinish});
+
+  final ValueChanged<BuildContext> onFinish;
+
+  @override
+  State<OnboardingScreen> createState() => _OnboardingScreenState();
+}
+
+class _OnboardingScreenState extends State<OnboardingScreen> {
+  final PageController _pageController = PageController();
+  int _currentPage = 0;
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _goToPage(int page) {
+    _pageController.animateToPage(
+      page,
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = S.of(context);
+    final pages = [
+      (
+        asset: 'assets/images/onboarding_done.svg',
+        title: strings.onboardingStepOneTitle,
+        body: strings.onboardingStepOneBody,
+        description: strings.onboardingOneImageDescription,
+      ),
+      (
+        asset: 'assets/images/onboarding_time.svg',
+        title: strings.onboardingStepTwoTitle,
+        body: strings.onboardingStepTwoBody,
+        description: strings.onboardingTwoImageDescription,
+      ),
+      (
+        asset: 'assets/images/onboarding_medication.svg',
+        title: strings.onboardingStepThreeTitle,
+        body: strings.onboardingStepThreeBody,
+        description: strings.onboardingThreeImageDescription,
+      ),
+    ];
+
+    return Scaffold(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+          child: Column(
+            children: [
+              SizedBox(
+                height: 48,
+                child: Row(
+                  children: [
+                    if (_currentPage > 0)
+                      IconButton(
+                        tooltip: strings.onboardingBack,
+                        onPressed: () => _goToPage(_currentPage - 1),
+                        icon: const Icon(Icons.arrow_back_rounded),
+                      )
+                    else
+                      const SizedBox(width: 48),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () => widget.onFinish(context),
+                      child: Text(strings.onboardingSkip),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: PageView.builder(
+                  controller: _pageController,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: pages.length,
+                  onPageChanged: (page) => setState(() => _currentPage = page),
+                  itemBuilder: (context, index) {
+                    final page = pages[index];
+                    return _OnboardingPageContent(
+                      asset: page.asset,
+                      title: page.title,
+                      body: page.body,
+                      imageDescription: page.description,
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+              _OnboardingProgress(
+                currentPage: _currentPage,
+                steps: [
+                  strings.onboardingStepOne,
+                  strings.onboardingStepTwo,
+                  strings.onboardingStepThree,
+                ],
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    if (_currentPage == pages.length - 1) {
+                      widget.onFinish(context);
+                    } else {
+                      _goToPage(_currentPage + 1);
+                    }
+                  },
+                  child: Text(
+                    _currentPage == pages.length - 1
+                        ? strings.onboardingStart
+                        : strings.onboardingNext,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OnboardingPageContent extends StatelessWidget {
+  const _OnboardingPageContent({
+    required this.asset,
+    required this.title,
+    required this.body,
+    required this.imageDescription,
+  });
+
+  final String asset;
+  final String title;
+  final String body;
+  final String imageDescription;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Semantics(
+                  image: true,
+                  label: imageDescription,
+                  child: SvgPicture.asset(
+                    asset,
+                    width: 240,
+                    height: 240,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+                const SizedBox(height: 28),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 10),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 340),
+                  child: Text(
+                    body,
+                    textAlign: TextAlign.center,
+                    style: textTheme.bodyLarge,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _OnboardingProgress extends StatelessWidget {
+  const _OnboardingProgress({required this.currentPage, required this.steps});
+
+  final int currentPage;
+  final List<String> steps;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: steps[currentPage],
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          for (var index = 0; index < steps.length; index++) ...[
+            if (index > 0) const SizedBox(width: 10),
+            Semantics(
+              label: steps[index],
+              selected: index == currentPage,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: index == currentPage ? 64 : 18,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: index == currentPage
+                      ? AppColors.primary
+                      : AppColors.outline,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

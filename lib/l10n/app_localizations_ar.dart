@@ -10,6 +10,69 @@ class SAr extends S {
   SAr([String locale = 'ar']) : super(locale);
 
   @override
+  String get welcomeTitle => 'ذكرني';
+
+  @override
+  String get welcomeTagline => 'نذكّرك، لتبقى بخير';
+
+  @override
+  String get welcomeContinue => 'اضغط للمتابعة';
+
+  @override
+  String get appLogoDescription => 'شعار تطبيق ذكرني';
+
+  @override
+  String get onboardingSkip => 'تخطّي';
+
+  @override
+  String get onboardingBack => 'رجوع';
+
+  @override
+  String get onboardingNext => 'التالي';
+
+  @override
+  String get onboardingStart => 'لنبدأ';
+
+  @override
+  String get onboardingStepOne => 'الشاشة 1 من 3';
+
+  @override
+  String get onboardingStepTwo => 'الشاشة 2 من 3';
+
+  @override
+  String get onboardingStepThree => 'الشاشة 3 من 3';
+
+  @override
+  String get onboardingStepOneTitle => 'مرحبًا بك في ذكرني';
+
+  @override
+  String get onboardingStepOneBody =>
+      'نساعدك على تذكّر أدويتك في مواعيدها، بهدوء ودون تعقيد.';
+
+  @override
+  String get onboardingStepTwoTitle => 'تذكير في الوقت المناسب';
+
+  @override
+  String get onboardingStepTwoBody =>
+      'يصلك تذكير واضح عند موعد كل جرعة، مع اسم الدواء والكمية.';
+
+  @override
+  String get onboardingStepThreeTitle => 'تأكيد بلمسة واحدة';
+
+  @override
+  String get onboardingStepThreeBody =>
+      'سجّل الجرعة بلمسة، وتابع التزامك يومًا بيوم.';
+
+  @override
+  String get onboardingOneImageDescription => 'رسم هاتف يعرض علامة تأكيد';
+
+  @override
+  String get onboardingTwoImageDescription => 'رسم ساعة مع جرس تنبيه';
+
+  @override
+  String get onboardingThreeImageDescription => 'رسم علبة أدوية';
+
+  @override
   String get greeting => 'مرحبًا بك';
 
   @override

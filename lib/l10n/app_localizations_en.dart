@@ -10,6 +10,72 @@ class SEn extends S {
   SEn([String locale = 'en']) : super(locale);
 
   @override
+  String get welcomeTitle => 'Dhakkirni';
+
+  @override
+  String get welcomeTagline => 'We remind you, so you can stay well';
+
+  @override
+  String get welcomeContinue => 'Tap to continue';
+
+  @override
+  String get appLogoDescription => 'Dhakkirni app logo';
+
+  @override
+  String get onboardingSkip => 'Skip';
+
+  @override
+  String get onboardingBack => 'Back';
+
+  @override
+  String get onboardingNext => 'Next';
+
+  @override
+  String get onboardingStart => 'Let\'s start';
+
+  @override
+  String get onboardingStepOne => 'Screen 1 of 3';
+
+  @override
+  String get onboardingStepTwo => 'Screen 2 of 3';
+
+  @override
+  String get onboardingStepThree => 'Screen 3 of 3';
+
+  @override
+  String get onboardingStepOneTitle => 'Welcome to Dhakkirni';
+
+  @override
+  String get onboardingStepOneBody =>
+      'We help you remember your medications on time, calmly and simply.';
+
+  @override
+  String get onboardingStepTwoTitle => 'A reminder at the right time';
+
+  @override
+  String get onboardingStepTwoBody =>
+      'You receive a clear reminder for each dose, with the medication name and amount.';
+
+  @override
+  String get onboardingStepThreeTitle => 'Confirm with one tap';
+
+  @override
+  String get onboardingStepThreeBody =>
+      'Record a dose with one tap and follow your adherence day by day.';
+
+  @override
+  String get onboardingOneImageDescription =>
+      'Illustration of a phone showing a check mark';
+
+  @override
+  String get onboardingTwoImageDescription =>
+      'Illustration of a clock with a reminder bell';
+
+  @override
+  String get onboardingThreeImageDescription =>
+      'Illustration of a medication box';
+
+  @override
   String get greeting => 'Welcome back';
 
   @override
