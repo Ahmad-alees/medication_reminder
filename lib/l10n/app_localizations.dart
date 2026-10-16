@@ -217,16 +217,130 @@ abstract class S {
   /// **'رسم علبة أدوية'**
   String get onboardingThreeImageDescription;
 
+  /// No description provided for @permissionBack.
+  ///
+  /// In ar, this message translates to:
+  /// **'رجوع'**
+  String get permissionBack;
+
+  /// No description provided for @permissionAllow.
+  ///
+  /// In ar, this message translates to:
+  /// **'السماح'**
+  String get permissionAllow;
+
+  /// No description provided for @permissionLater.
+  ///
+  /// In ar, this message translates to:
+  /// **'لاحقًا'**
+  String get permissionLater;
+
+  /// No description provided for @permissionStepOne.
+  ///
+  /// In ar, this message translates to:
+  /// **'1 من 3'**
+  String get permissionStepOne;
+
+  /// No description provided for @permissionStepTwo.
+  ///
+  /// In ar, this message translates to:
+  /// **'2 من 3'**
+  String get permissionStepTwo;
+
+  /// No description provided for @permissionStepThree.
+  ///
+  /// In ar, this message translates to:
+  /// **'3 من 3'**
+  String get permissionStepThree;
+
+  /// No description provided for @notificationPermissionTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'السماح بالإشعارات'**
+  String get notificationPermissionTitle;
+
+  /// No description provided for @notificationPermissionBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'نحتاج إلى الإشعارات لنذكّرك بموعد كل جرعة، حتى عندما يكون التطبيق مغلقًا.'**
+  String get notificationPermissionBody;
+
+  /// No description provided for @notificationPermissionNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'لن نرسل إلا التذكيرات المتعلقة بأدويتك.'**
+  String get notificationPermissionNote;
+
+  /// No description provided for @exactAlarmPermissionTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'السماح بالتنبيهات الدقيقة'**
+  String get exactAlarmPermissionTitle;
+
+  /// No description provided for @exactAlarmPermissionBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'حتى يصل التذكير في الدقيقة المحددة تمامًا، لا قبلها ولا بعدها.'**
+  String get exactAlarmPermissionBody;
+
+  /// No description provided for @exactAlarmPermissionNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'يمكنك تغيير ذلك لاحقًا من إعدادات الهاتف.'**
+  String get exactAlarmPermissionNote;
+
+  /// No description provided for @batteryPermissionTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'تجاهل تحسين البطارية'**
+  String get batteryPermissionTitle;
+
+  /// No description provided for @batteryPermissionBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'بعض الهواتف توقف التطبيقات لتوفير البطارية. السماح بذلك يضمن ألّا يفوتك أي تذكير.'**
+  String get batteryPermissionBody;
+
+  /// No description provided for @batteryPermissionNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'تأثير ذلك على البطارية بسيط جدًا.'**
+  String get batteryPermissionNote;
+
+  /// No description provided for @goodMorning.
+  ///
+  /// In ar, this message translates to:
+  /// **'صباح الخير'**
+  String get goodMorning;
+
+  /// No description provided for @goodAfternoon.
+  ///
+  /// In ar, this message translates to:
+  /// **'نهارك سعيد'**
+  String get goodAfternoon;
+
+  /// No description provided for @goodEvening.
+  ///
+  /// In ar, this message translates to:
+  /// **'مساء الخير'**
+  String get goodEvening;
+
+  /// No description provided for @todayPrefix.
+  ///
+  /// In ar, this message translates to:
+  /// **'اليوم،'**
+  String get todayPrefix;
+
   /// No description provided for @greeting.
   ///
   /// In ar, this message translates to:
-  /// **'مرحبًا بك'**
+  /// **'مساء الخير'**
   String get greeting;
 
   /// No description provided for @todayDate.
   ///
   /// In ar, this message translates to:
-  /// **'اليوم، 12 أكتوبر'**
+  /// **'اليوم، السبت، 10 أكتوبر'**
   String get todayDate;
 
   /// No description provided for @changeLanguage.
@@ -264,6 +378,294 @@ abstract class S {
   /// In ar, this message translates to:
   /// **'جرعات اليوم'**
   String get todayDoses;
+
+  /// No description provided for @emptyTodayTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا توجد مواعيد مضافة'**
+  String get emptyTodayTitle;
+
+  /// No description provided for @emptyTodayBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'أضف موعدًا لدوائك حتى نذكّرك به في الوقت المناسب.'**
+  String get emptyTodayBody;
+
+  /// No description provided for @addAppointment.
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة موعد'**
+  String get addAppointment;
+
+  /// No description provided for @addAppointmentTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة موعد'**
+  String get addAppointmentTitle;
+
+  /// No description provided for @addStepOne.
+  ///
+  /// In ar, this message translates to:
+  /// **'الخطوة 1 من 3 · الاسم والتركيز'**
+  String get addStepOne;
+
+  /// No description provided for @addStepTwo.
+  ///
+  /// In ar, this message translates to:
+  /// **'الخطوة 2 من 3 · المواعيد والأيام'**
+  String get addStepTwo;
+
+  /// No description provided for @addStepThree.
+  ///
+  /// In ar, this message translates to:
+  /// **'الخطوة 3 من 3 · المخزون والملاحظات'**
+  String get addStepThree;
+
+  /// No description provided for @medicationName.
+  ///
+  /// In ar, this message translates to:
+  /// **'اسم الدواء'**
+  String get medicationName;
+
+  /// No description provided for @medicationNameHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'مثال: ميتفورمين'**
+  String get medicationNameHint;
+
+  /// No description provided for @medicationNameRequired.
+  ///
+  /// In ar, this message translates to:
+  /// **'اكتب اسم الدواء أولًا'**
+  String get medicationNameRequired;
+
+  /// No description provided for @strengthOptional.
+  ///
+  /// In ar, this message translates to:
+  /// **'التركيز (اختياري)'**
+  String get strengthOptional;
+
+  /// No description provided for @strengthHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'مثال: 500'**
+  String get strengthHint;
+
+  /// No description provided for @strengthUnit.
+  ///
+  /// In ar, this message translates to:
+  /// **'وحدة التركيز'**
+  String get strengthUnit;
+
+  /// No description provided for @dosageForm.
+  ///
+  /// In ar, this message translates to:
+  /// **'شكل الدواء'**
+  String get dosageForm;
+
+  /// No description provided for @tablet.
+  ///
+  /// In ar, this message translates to:
+  /// **'قرص'**
+  String get tablet;
+
+  /// No description provided for @capsule.
+  ///
+  /// In ar, this message translates to:
+  /// **'كبسولة'**
+  String get capsule;
+
+  /// No description provided for @syrup.
+  ///
+  /// In ar, this message translates to:
+  /// **'شراب'**
+  String get syrup;
+
+  /// No description provided for @injection.
+  ///
+  /// In ar, this message translates to:
+  /// **'حقنة'**
+  String get injection;
+
+  /// No description provided for @drops.
+  ///
+  /// In ar, this message translates to:
+  /// **'قطرة'**
+  String get drops;
+
+  /// No description provided for @next.
+  ///
+  /// In ar, this message translates to:
+  /// **'التالي'**
+  String get next;
+
+  /// No description provided for @back.
+  ///
+  /// In ar, this message translates to:
+  /// **'رجوع'**
+  String get back;
+
+  /// No description provided for @reminderTimes.
+  ///
+  /// In ar, this message translates to:
+  /// **'أوقات التذكير'**
+  String get reminderTimes;
+
+  /// No description provided for @addTime.
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة وقت'**
+  String get addTime;
+
+  /// No description provided for @days.
+  ///
+  /// In ar, this message translates to:
+  /// **'الأيام'**
+  String get days;
+
+  /// No description provided for @everyDay.
+  ///
+  /// In ar, this message translates to:
+  /// **'كل يوم'**
+  String get everyDay;
+
+  /// No description provided for @everyDayDescription.
+  ///
+  /// In ar, this message translates to:
+  /// **'يصلك التذكير طوال أيام الأسبوع'**
+  String get everyDayDescription;
+
+  /// No description provided for @review.
+  ///
+  /// In ar, this message translates to:
+  /// **'مراجعة'**
+  String get review;
+
+  /// No description provided for @availableQuantity.
+  ///
+  /// In ar, this message translates to:
+  /// **'الكمية المتوفرة'**
+  String get availableQuantity;
+
+  /// No description provided for @availableQuantityDescription.
+  ///
+  /// In ar, this message translates to:
+  /// **'عدد الأقراص أو الجرعات الموجودة لديك الآن'**
+  String get availableQuantityDescription;
+
+  /// No description provided for @lowStockAlert.
+  ///
+  /// In ar, this message translates to:
+  /// **'تنبيه انخفاض المخزون'**
+  String get lowStockAlert;
+
+  /// No description provided for @lowStockAlertDescription.
+  ///
+  /// In ar, this message translates to:
+  /// **'نذكّرك عندما يقلّ المخزون'**
+  String get lowStockAlertDescription;
+
+  /// No description provided for @alertThreshold.
+  ///
+  /// In ar, this message translates to:
+  /// **'نبّهني عندما يتبقى'**
+  String get alertThreshold;
+
+  /// No description provided for @notesOptional.
+  ///
+  /// In ar, this message translates to:
+  /// **'ملاحظات (اختياري)'**
+  String get notesOptional;
+
+  /// No description provided for @notesHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'مثال: بعد الأكل'**
+  String get notesHint;
+
+  /// No description provided for @save.
+  ///
+  /// In ar, this message translates to:
+  /// **'حفظ'**
+  String get save;
+
+  /// No description provided for @appointmentSaved.
+  ///
+  /// In ar, this message translates to:
+  /// **'حُفظ الموعد بنجاح'**
+  String get appointmentSaved;
+
+  /// No description provided for @currentDose.
+  ///
+  /// In ar, this message translates to:
+  /// **'حان الآن: ميتفورمين 500 مغ'**
+  String get currentDose;
+
+  /// No description provided for @lowStockTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'دواءان قاربا على النفاد'**
+  String get lowStockTitle;
+
+  /// No description provided for @lowStockBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'اضغط لعرض الأدوية وتجديدها'**
+  String get lowStockBody;
+
+  /// No description provided for @morning.
+  ///
+  /// In ar, this message translates to:
+  /// **'الصباح'**
+  String get morning;
+
+  /// No description provided for @afternoon.
+  ///
+  /// In ar, this message translates to:
+  /// **'الظهر'**
+  String get afternoon;
+
+  /// No description provided for @evening.
+  ///
+  /// In ar, this message translates to:
+  /// **'المساء'**
+  String get evening;
+
+  /// No description provided for @threeDoses.
+  ///
+  /// In ar, this message translates to:
+  /// **'3 جرعات'**
+  String get threeDoses;
+
+  /// No description provided for @twoDoses.
+  ///
+  /// In ar, this message translates to:
+  /// **'جرعتان'**
+  String get twoDoses;
+
+  /// No description provided for @upcoming.
+  ///
+  /// In ar, this message translates to:
+  /// **'قادمة'**
+  String get upcoming;
+
+  /// No description provided for @dueNow.
+  ///
+  /// In ar, this message translates to:
+  /// **'حان الموعد'**
+  String get dueNow;
+
+  /// No description provided for @snoozedUntil.
+  ///
+  /// In ar, this message translates to:
+  /// **'مؤجلة حتى 1:10 م'**
+  String get snoozedUntil;
+
+  /// No description provided for @missed.
+  ///
+  /// In ar, this message translates to:
+  /// **'فائتة'**
+  String get missed;
 
   /// No description provided for @firstMedication.
   ///

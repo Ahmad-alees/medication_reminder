@@ -147,6 +147,17 @@ class AppTheme {
         foregroundColor: textColor,
         elevation: 0,
       ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: isDark ? AppColors.darkSurface : AppColors.surface,
+        indicatorColor: AppColors.accent,
+        labelTextStyle: WidgetStatePropertyAll(
+          TextStyle(
+            fontFamily: fontFamily,
+            fontWeight: FontWeight.w700,
+            color: textColor,
+          ),
+        ),
+      ),
       cardTheme: CardThemeData(
         color: s.surface,
         elevation: isDark ? 0 : 1,

@@ -73,10 +73,72 @@ class SAr extends S {
   String get onboardingThreeImageDescription => 'رسم علبة أدوية';
 
   @override
-  String get greeting => 'مرحبًا بك';
+  String get permissionBack => 'رجوع';
 
   @override
-  String get todayDate => 'اليوم، 12 أكتوبر';
+  String get permissionAllow => 'السماح';
+
+  @override
+  String get permissionLater => 'لاحقًا';
+
+  @override
+  String get permissionStepOne => '1 من 3';
+
+  @override
+  String get permissionStepTwo => '2 من 3';
+
+  @override
+  String get permissionStepThree => '3 من 3';
+
+  @override
+  String get notificationPermissionTitle => 'السماح بالإشعارات';
+
+  @override
+  String get notificationPermissionBody =>
+      'نحتاج إلى الإشعارات لنذكّرك بموعد كل جرعة، حتى عندما يكون التطبيق مغلقًا.';
+
+  @override
+  String get notificationPermissionNote =>
+      'لن نرسل إلا التذكيرات المتعلقة بأدويتك.';
+
+  @override
+  String get exactAlarmPermissionTitle => 'السماح بالتنبيهات الدقيقة';
+
+  @override
+  String get exactAlarmPermissionBody =>
+      'حتى يصل التذكير في الدقيقة المحددة تمامًا، لا قبلها ولا بعدها.';
+
+  @override
+  String get exactAlarmPermissionNote =>
+      'يمكنك تغيير ذلك لاحقًا من إعدادات الهاتف.';
+
+  @override
+  String get batteryPermissionTitle => 'تجاهل تحسين البطارية';
+
+  @override
+  String get batteryPermissionBody =>
+      'بعض الهواتف توقف التطبيقات لتوفير البطارية. السماح بذلك يضمن ألّا يفوتك أي تذكير.';
+
+  @override
+  String get batteryPermissionNote => 'تأثير ذلك على البطارية بسيط جدًا.';
+
+  @override
+  String get goodMorning => 'صباح الخير';
+
+  @override
+  String get goodAfternoon => 'نهارك سعيد';
+
+  @override
+  String get goodEvening => 'مساء الخير';
+
+  @override
+  String get todayPrefix => 'اليوم،';
+
+  @override
+  String get greeting => 'مساء الخير';
+
+  @override
+  String get todayDate => 'اليوم، السبت، 10 أكتوبر';
 
   @override
   String get changeLanguage => 'تغيير اللغة';
@@ -95,6 +157,152 @@ class SAr extends S {
 
   @override
   String get todayDoses => 'جرعات اليوم';
+
+  @override
+  String get emptyTodayTitle => 'لا توجد مواعيد مضافة';
+
+  @override
+  String get emptyTodayBody =>
+      'أضف موعدًا لدوائك حتى نذكّرك به في الوقت المناسب.';
+
+  @override
+  String get addAppointment => 'إضافة موعد';
+
+  @override
+  String get addAppointmentTitle => 'إضافة موعد';
+
+  @override
+  String get addStepOne => 'الخطوة 1 من 3 · الاسم والتركيز';
+
+  @override
+  String get addStepTwo => 'الخطوة 2 من 3 · المواعيد والأيام';
+
+  @override
+  String get addStepThree => 'الخطوة 3 من 3 · المخزون والملاحظات';
+
+  @override
+  String get medicationName => 'اسم الدواء';
+
+  @override
+  String get medicationNameHint => 'مثال: ميتفورمين';
+
+  @override
+  String get medicationNameRequired => 'اكتب اسم الدواء أولًا';
+
+  @override
+  String get strengthOptional => 'التركيز (اختياري)';
+
+  @override
+  String get strengthHint => 'مثال: 500';
+
+  @override
+  String get strengthUnit => 'وحدة التركيز';
+
+  @override
+  String get dosageForm => 'شكل الدواء';
+
+  @override
+  String get tablet => 'قرص';
+
+  @override
+  String get capsule => 'كبسولة';
+
+  @override
+  String get syrup => 'شراب';
+
+  @override
+  String get injection => 'حقنة';
+
+  @override
+  String get drops => 'قطرة';
+
+  @override
+  String get next => 'التالي';
+
+  @override
+  String get back => 'رجوع';
+
+  @override
+  String get reminderTimes => 'أوقات التذكير';
+
+  @override
+  String get addTime => 'إضافة وقت';
+
+  @override
+  String get days => 'الأيام';
+
+  @override
+  String get everyDay => 'كل يوم';
+
+  @override
+  String get everyDayDescription => 'يصلك التذكير طوال أيام الأسبوع';
+
+  @override
+  String get review => 'مراجعة';
+
+  @override
+  String get availableQuantity => 'الكمية المتوفرة';
+
+  @override
+  String get availableQuantityDescription =>
+      'عدد الأقراص أو الجرعات الموجودة لديك الآن';
+
+  @override
+  String get lowStockAlert => 'تنبيه انخفاض المخزون';
+
+  @override
+  String get lowStockAlertDescription => 'نذكّرك عندما يقلّ المخزون';
+
+  @override
+  String get alertThreshold => 'نبّهني عندما يتبقى';
+
+  @override
+  String get notesOptional => 'ملاحظات (اختياري)';
+
+  @override
+  String get notesHint => 'مثال: بعد الأكل';
+
+  @override
+  String get save => 'حفظ';
+
+  @override
+  String get appointmentSaved => 'حُفظ الموعد بنجاح';
+
+  @override
+  String get currentDose => 'حان الآن: ميتفورمين 500 مغ';
+
+  @override
+  String get lowStockTitle => 'دواءان قاربا على النفاد';
+
+  @override
+  String get lowStockBody => 'اضغط لعرض الأدوية وتجديدها';
+
+  @override
+  String get morning => 'الصباح';
+
+  @override
+  String get afternoon => 'الظهر';
+
+  @override
+  String get evening => 'المساء';
+
+  @override
+  String get threeDoses => '3 جرعات';
+
+  @override
+  String get twoDoses => 'جرعتان';
+
+  @override
+  String get upcoming => 'قادمة';
+
+  @override
+  String get dueNow => 'حان الموعد';
+
+  @override
+  String get snoozedUntil => 'مؤجلة حتى 1:10 م';
+
+  @override
+  String get missed => 'فائتة';
 
   @override
   String get firstMedication => 'ميتفورمين';

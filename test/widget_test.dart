@@ -5,6 +5,7 @@
 // gestures. You can also use WidgetTester to find child widgets in the widget
 // tree, read text, and verify that the values of widget properties are correct.
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:medication_reminder/main.dart';
@@ -36,13 +37,38 @@ void main() {
     await tester.tap(find.text('لنبدأ'));
     await tester.pumpAndSettle();
 
-    expect(find.text('مرحبًا بك'), findsOneWidget);
-    expect(find.text('جرعات اليوم'), findsOneWidget);
-    expect(find.text('ميتفورمين'), findsOneWidget);
-    expect(find.text('بانتظار'), findsOneWidget);
+    expect(find.text('السماح بالإشعارات'), findsOneWidget);
+    expect(find.text('1 من 3'), findsOneWidget);
+    await tester.tap(find.text('لاحقًا'));
+    await tester.pumpAndSettle();
+    expect(find.text('السماح بالتنبيهات الدقيقة'), findsOneWidget);
+    expect(find.text('2 من 3'), findsOneWidget);
+    await tester.tap(find.text('لاحقًا'));
+    await tester.pumpAndSettle();
+    expect(find.text('تجاهل تحسين البطارية'), findsOneWidget);
+    expect(find.text('3 من 3'), findsOneWidget);
+    await tester.tap(find.text('لاحقًا'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('لا توجد مواعيد مضافة'), findsOneWidget);
+    expect(find.text('إضافة موعد'), findsOneWidget);
+
+    await tester.tap(find.text('إضافة موعد'));
+    await tester.pumpAndSettle();
+    expect(find.text('إضافة موعد'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).first, 'دواء تجريبي');
+    await tester.tap(find.text('التالي'));
+    await tester.pumpAndSettle();
+    expect(find.text('أوقات التذكير'), findsOneWidget);
+    await tester.tap(find.text('التالي'));
+    await tester.pumpAndSettle();
+    expect(find.text('الكمية المتوفرة'), findsOneWidget);
+    await tester.tap(find.text('حفظ'));
+    await tester.pumpAndSettle();
+    expect(find.text('الصباح'), findsOneWidget);
   });
 
-  testWidgets('switches the home screen to English after welcome', (
+  testWidgets('renders the today screen after permissions', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MyApp());
@@ -55,13 +81,16 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('لنبدأ'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('تغيير اللغة'));
+    await tester.tap(find.text('السماح'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('السماح'));
+    await tester.pumpAndSettle();
+    expect(find.text('تجاهل تحسين البطارية'), findsOneWidget);
+    await tester.tap(find.text('السماح'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Welcome back'), findsOneWidget);
-    expect(find.text("Today's doses"), findsOneWidget);
-    expect(find.text('Metformin'), findsOneWidget);
-    expect(find.text('Pending'), findsOneWidget);
+    expect(find.text('لا توجد مواعيد مضافة'), findsOneWidget);
+    expect(find.text('إضافة موعد'), findsOneWidget);
   });
 
   testWidgets('supports onboarding back and skip actions', (
@@ -80,6 +109,12 @@ void main() {
 
     await tester.tap(find.text('تخطّي'));
     await tester.pumpAndSettle();
-    expect(find.text('جرعات اليوم'), findsOneWidget);
+    expect(find.text('السماح بالإشعارات'), findsOneWidget);
+    await tester.tap(find.text('لاحقًا'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('لاحقًا'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('لاحقًا'));
+    await tester.pumpAndSettle();
   });
 }

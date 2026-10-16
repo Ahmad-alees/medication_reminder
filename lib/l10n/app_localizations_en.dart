@@ -76,10 +76,72 @@ class SEn extends S {
       'Illustration of a medication box';
 
   @override
-  String get greeting => 'Welcome back';
+  String get permissionBack => 'Back';
 
   @override
-  String get todayDate => 'Today, October 12';
+  String get permissionAllow => 'Allow';
+
+  @override
+  String get permissionLater => 'Later';
+
+  @override
+  String get permissionStepOne => '1 of 3';
+
+  @override
+  String get permissionStepTwo => '2 of 3';
+
+  @override
+  String get permissionStepThree => '3 of 3';
+
+  @override
+  String get notificationPermissionTitle => 'Allow notifications';
+
+  @override
+  String get notificationPermissionBody =>
+      'We need notifications to remind you when it is time for each dose, even when the app is closed.';
+
+  @override
+  String get notificationPermissionNote =>
+      'We will only send reminders related to your medications.';
+
+  @override
+  String get exactAlarmPermissionTitle => 'Allow exact notifications';
+
+  @override
+  String get exactAlarmPermissionBody =>
+      'So the reminder arrives at the exact minute, not before or after.';
+
+  @override
+  String get exactAlarmPermissionNote =>
+      'You can change this later in your phone settings.';
+
+  @override
+  String get batteryPermissionTitle => 'Allow battery optimization exemption';
+
+  @override
+  String get batteryPermissionBody =>
+      'Some phones stop apps to save battery. Allowing this helps prevent missed reminders.';
+
+  @override
+  String get batteryPermissionNote => 'The effect on battery life is minimal.';
+
+  @override
+  String get goodMorning => 'Good morning';
+
+  @override
+  String get goodAfternoon => 'Good afternoon';
+
+  @override
+  String get goodEvening => 'Good evening';
+
+  @override
+  String get todayPrefix => 'Today,';
+
+  @override
+  String get greeting => 'Good evening';
+
+  @override
+  String get todayDate => 'Today, Saturday, October 10';
 
   @override
   String get changeLanguage => 'Change language';
@@ -98,6 +160,152 @@ class SEn extends S {
 
   @override
   String get todayDoses => 'Today\'s doses';
+
+  @override
+  String get emptyTodayTitle => 'No appointments added';
+
+  @override
+  String get emptyTodayBody =>
+      'Add a medication time so we can remind you at the right moment.';
+
+  @override
+  String get addAppointment => 'Add appointment';
+
+  @override
+  String get addAppointmentTitle => 'Add appointment';
+
+  @override
+  String get addStepOne => 'Step 1 of 3 · Name and strength';
+
+  @override
+  String get addStepTwo => 'Step 2 of 3 · Times and days';
+
+  @override
+  String get addStepThree => 'Step 3 of 3 · Stock and notes';
+
+  @override
+  String get medicationName => 'Medication name';
+
+  @override
+  String get medicationNameHint => 'Example: Metformin';
+
+  @override
+  String get medicationNameRequired => 'Enter the medication name first';
+
+  @override
+  String get strengthOptional => 'Strength (optional)';
+
+  @override
+  String get strengthHint => 'Example: 500';
+
+  @override
+  String get strengthUnit => 'Strength unit';
+
+  @override
+  String get dosageForm => 'Dosage form';
+
+  @override
+  String get tablet => 'Tablet';
+
+  @override
+  String get capsule => 'Capsule';
+
+  @override
+  String get syrup => 'Syrup';
+
+  @override
+  String get injection => 'Injection';
+
+  @override
+  String get drops => 'Drops';
+
+  @override
+  String get next => 'Next';
+
+  @override
+  String get back => 'Back';
+
+  @override
+  String get reminderTimes => 'Reminder times';
+
+  @override
+  String get addTime => 'Add time';
+
+  @override
+  String get days => 'Days';
+
+  @override
+  String get everyDay => 'Every day';
+
+  @override
+  String get everyDayDescription => 'You receive reminders throughout the week';
+
+  @override
+  String get review => 'Review';
+
+  @override
+  String get availableQuantity => 'Available quantity';
+
+  @override
+  String get availableQuantityDescription =>
+      'Number of tablets or doses you have now';
+
+  @override
+  String get lowStockAlert => 'Low stock alert';
+
+  @override
+  String get lowStockAlertDescription => 'We remind you when stock is low';
+
+  @override
+  String get alertThreshold => 'Alert me when remaining';
+
+  @override
+  String get notesOptional => 'Notes (optional)';
+
+  @override
+  String get notesHint => 'Example: after food';
+
+  @override
+  String get save => 'Save';
+
+  @override
+  String get appointmentSaved => 'Appointment saved successfully';
+
+  @override
+  String get currentDose => 'Now: Metformin 500 mg';
+
+  @override
+  String get lowStockTitle => 'Two medications are running low';
+
+  @override
+  String get lowStockBody => 'Tap to view medications and refill';
+
+  @override
+  String get morning => 'Morning';
+
+  @override
+  String get afternoon => 'Afternoon';
+
+  @override
+  String get evening => 'Evening';
+
+  @override
+  String get threeDoses => '3 doses';
+
+  @override
+  String get twoDoses => '2 doses';
+
+  @override
+  String get upcoming => 'Upcoming';
+
+  @override
+  String get dueNow => 'Due now';
+
+  @override
+  String get snoozedUntil => 'Snoozed until 1:10 PM';
+
+  @override
+  String get missed => 'Missed';
 
   @override
   String get firstMedication => 'Metformin';
