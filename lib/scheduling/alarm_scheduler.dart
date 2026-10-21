@@ -22,4 +22,10 @@ class NoOpAlarmScheduler implements AlarmScheduler {
 
   @override
   Future<void> schedule(DoseRecord dose) async {}
+
+  @override
+  Future<void> replace(DoseRecord dose) {
+
+    throw UnimplementedError();
+  }
 }
