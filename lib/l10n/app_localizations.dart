@@ -145,6 +145,12 @@ abstract class S {
   /// **'لنبدأ'**
   String get onboardingStart;
 
+  /// No description provided for @medications.
+  ///
+  /// In ar, this message translates to:
+  /// **'الأدوية'**
+  String get medications;
+
   /// No description provided for @onboardingStepOne.
   ///
   /// In ar, this message translates to:
@@ -396,6 +402,48 @@ abstract class S {
   /// In ar, this message translates to:
   /// **'إضافة موعد'**
   String get addAppointment;
+
+  /// No description provided for @medicationsTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'أدويتي'**
+  String get medicationsTitle;
+
+  /// No description provided for @searchMedication.
+  ///
+  /// In ar, this message translates to:
+  /// **'ابحث عن دواء'**
+  String get searchMedication;
+
+  /// No description provided for @medicationCount.
+  ///
+  /// In ar, this message translates to:
+  /// **'5 أدوية'**
+  String get medicationCount;
+
+  /// No description provided for @remainingStock.
+  ///
+  /// In ar, this message translates to:
+  /// **'المتبقي'**
+  String get remainingStock;
+
+  /// No description provided for @lowStockOnly.
+  ///
+  /// In ar, this message translates to:
+  /// **'بقي قليلًا'**
+  String get lowStockOnly;
+
+  /// No description provided for @threeTimesDaily.
+  ///
+  /// In ar, this message translates to:
+  /// **'3 مرات يوميًا · كل يوم'**
+  String get threeTimesDaily;
+
+  /// No description provided for @onceDaily.
+  ///
+  /// In ar, this message translates to:
+  /// **'مرة واحدة يوميًا · كل يوم'**
+  String get onceDaily;
 
   /// No description provided for @addAppointmentTitle.
   ///
@@ -715,6 +763,90 @@ abstract class S {
   /// **'تم أخذها'**
   String get taken;
 
+  /// No description provided for @snoozed.
+  ///
+  /// In ar, this message translates to:
+  /// **'مؤجلة'**
+  String get snoozed;
+
+  /// No description provided for @takenAction.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم أخذ الدواء'**
+  String get takenAction;
+
+  /// No description provided for @snoozeAction.
+  ///
+  /// In ar, this message translates to:
+  /// **'ذكّرني بعد 10 دقائق'**
+  String get snoozeAction;
+
+  /// No description provided for @skipAction.
+  ///
+  /// In ar, this message translates to:
+  /// **'تخطي'**
+  String get skipAction;
+
+  /// No description provided for @doseLoggedTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'أحسنت! سُجّلت الجرعة'**
+  String get doseLoggedTitle;
+
+  /// No description provided for @doseLoggedBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم تسجيل هذه الجرعة. اتبع تعليمات طبيبك دائمًا.'**
+  String get doseLoggedBody;
+
+  /// No description provided for @nextDoseTimeLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'الجرعة القادمة'**
+  String get nextDoseTimeLabel;
+
+  /// No description provided for @noMoreDosesToday.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا توجد جرعات متبقية اليوم'**
+  String get noMoreDosesToday;
+
+  /// No description provided for @escalationWarning.
+  ///
+  /// In ar, this message translates to:
+  /// **'تأخير الجرعات أو نسيانها قد يؤثر على علاجك — اتبع تعليمات طبيبك.'**
+  String get escalationWarning;
+
+  /// No description provided for @reportsPlaceholder.
+  ///
+  /// In ar, this message translates to:
+  /// **'تقارير الالتزام ستُعرض هنا من سجل الجرعات المحفوظ.'**
+  String get reportsPlaceholder;
+
+  /// No description provided for @settingsPlaceholder.
+  ///
+  /// In ar, this message translates to:
+  /// **'إعدادات المنبّه واللغة ستُضاف هنا.'**
+  String get settingsPlaceholder;
+
+  /// No description provided for @reminderDisclaimer.
+  ///
+  /// In ar, this message translates to:
+  /// **'هذا التطبيق للتذكير فقط، ولا يقدّم نصيحة طبية.'**
+  String get reminderDisclaimer;
+
+  /// No description provided for @dosesCount.
+  ///
+  /// In ar, this message translates to:
+  /// **'{count} جرعات'**
+  String dosesCount(int count);
+
+  /// No description provided for @dailyProgressCount.
+  ///
+  /// In ar, this message translates to:
+  /// **'{taken} من {total} جرعات اليوم'**
+  String dailyProgressCount(int taken, int total);
+
   /// No description provided for @addMedication.
   ///
   /// In ar, this message translates to:
@@ -732,12 +864,6 @@ abstract class S {
   /// In ar, this message translates to:
   /// **'اليوم'**
   String get today;
-
-  /// No description provided for @medications.
-  ///
-  /// In ar, this message translates to:
-  /// **'الأدوية'**
-  String get medications;
 
   /// No description provided for @reports.
   ///

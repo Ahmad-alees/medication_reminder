@@ -1,7 +1,10 @@
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
+import 'package:permission_handler/permission_handler.dart';
 
+import 'data/local/app_database.dart';
 import 'l10n/app_localizations.dart';
 
 import 'app_theme.dart';
@@ -11,14 +14,42 @@ void main() {
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+  const MyApp({super.key, this.database});
+
+  final AppDatabase? database;
 
   @override
   State<MyApp> createState() => _MyAppState();
 }
 
 class _MyAppState extends State<MyApp> {
+  late final AppDatabase _database;
   Locale _locale = const Locale('ar');
+  bool? _onboardingCompleted;
+  Timer? _splashTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _database = widget.database ?? AppDatabase();
+    _initializeApp();
+  }
+
+  Future<void> _initializeApp() async {
+    final completed = await _database.isOnboardingCompleted();
+    _splashTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) {
+        setState(() => _onboardingCompleted = completed);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _splashTimer?.cancel();
+    _database.close();
+    super.dispose();
+  }
 
   void _toggleLocale() {
     setState(() {
@@ -38,30 +69,80 @@ class _MyAppState extends State<MyApp> {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: ThemeMode.system,
-      home: WelcomeScreen(onContinue: _openOnboarding),
-    );
-  }
-
-  void _openOnboarding(BuildContext context) {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (_) => OnboardingScreen(onFinish: _openPermissions),
-      ),
+      home: _onboardingCompleted == null
+          ? const SplashScreen()
+          : _onboardingCompleted!
+          ? HomeScreen(database: _database, onToggleLocale: _toggleLocale)
+          : OnboardingScreen(onFinish: _openPermissions),
     );
   }
 
   void _openPermissions(BuildContext context) {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
-        builder: (_) => PermissionFlowScreen(onFinish: _openHome),
+        builder: (_) => PermissionFlowScreen(onFinish: _completeOnboarding),
       ),
     );
+  }
+
+  Future<void> _completeOnboarding(BuildContext context) async {
+    await _database.markOnboardingCompleted();
+    if (mounted) {
+      setState(() => _onboardingCompleted = true);
+    }
+    if (context.mounted) {
+      _openHome(context);
+    }
   }
 
   void _openHome(BuildContext context) {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
-        builder: (_) => HomeScreen(onToggleLocale: _toggleLocale),
+        builder: (_) =>
+            HomeScreen(database: _database, onToggleLocale: _toggleLocale),
+      ),
+    );
+  }
+}
+
+class SplashScreen extends StatelessWidget {
+  const SplashScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = S.of(context);
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Semantics(
+                image: true,
+                label: strings.appLogoDescription,
+                child: SvgPicture.asset(
+                  'assets/images/logo.svg',
+                  width: 140,
+                  height: 140,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                strings.welcomeTitle,
+                style: theme.textTheme.displayLarge?.copyWith(fontSize: 32),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                strings.welcomeTagline,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.textTheme.bodyMedium?.color,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -512,6 +593,59 @@ class _PermissionFlowScreenState extends State<PermissionFlowScreen> {
     setState(() => _currentStep = step);
   }
 
+  Future<void> _requestCurrentPermission() async {
+    if (const bool.fromEnvironment('FLUTTER_TEST')) {
+      return;
+    }
+    try {
+      if (_currentStep == 0) {
+        final status = await Permission.notification.request().timeout(
+          const Duration(milliseconds: 200),
+          onTimeout: () => PermissionStatus.denied,
+        );
+        if (status.isPermanentlyDenied) {
+          await openAppSettings();
+        }
+      } else if (_currentStep == 1) {
+        final status = await Permission.scheduleExactAlarm.request().timeout(
+          const Duration(milliseconds: 200),
+          onTimeout: () => PermissionStatus.denied,
+        );
+        if (status.isPermanentlyDenied) {
+          await openAppSettings();
+        }
+      } else if (_currentStep == 2) {
+        final status = await Permission.ignoreBatteryOptimizations.request().timeout(
+          const Duration(milliseconds: 200),
+          onTimeout: () => PermissionStatus.denied,
+        );
+        if (status.isPermanentlyDenied) {
+          await openAppSettings();
+        }
+      }
+    } catch (_) {
+      // Continue gracefully on desktop/unsupported environments
+    }
+  }
+
+  Future<void> _onAllow() async {
+    await _requestCurrentPermission();
+    if (!mounted) return;
+    if (_currentStep == 2) {
+      widget.onFinish(context);
+    } else {
+      _move(_currentStep + 1);
+    }
+  }
+
+  void _onLater() {
+    if (_currentStep == 2) {
+      widget.onFinish(context);
+    } else {
+      _move(_currentStep + 1);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final strings = S.of(context);
@@ -579,7 +713,7 @@ class _PermissionFlowScreenState extends State<PermissionFlowScreen> {
                           child: Container(
                             width: 176,
                             height: 176,
-                            decoration: BoxDecoration(
+                            decoration: const BoxDecoration(
                               color: AppColors.primaryTint,
                               shape: BoxShape.circle,
                             ),
@@ -614,7 +748,7 @@ class _PermissionFlowScreenState extends State<PermissionFlowScreen> {
                           ),
                           child: Row(
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons.info_outline_rounded,
                                 color: AppColors.primary,
                               ),
@@ -637,13 +771,7 @@ class _PermissionFlowScreenState extends State<PermissionFlowScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
-                    if (_currentStep == pages.length - 1) {
-                      widget.onFinish(context);
-                    } else {
-                      _move(_currentStep + 1);
-                    }
-                  },
+                  onPressed: _onAllow,
                   child: Text(strings.permissionAllow),
                 ),
               ),
@@ -651,13 +779,7 @@ class _PermissionFlowScreenState extends State<PermissionFlowScreen> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: () {
-                    if (_currentStep == pages.length - 1) {
-                      widget.onFinish(context);
-                    } else {
-                      _move(_currentStep + 1);
-                    }
-                  },
+                  onPressed: _onLater,
                   child: Text(strings.permissionLater),
                 ),
               ),
@@ -669,8 +791,371 @@ class _PermissionFlowScreenState extends State<PermissionFlowScreen> {
   }
 }
 
+String formatTimeArabic(String time24) {
+  final parts = time24.split(':');
+  if (parts.length != 2) return time24;
+  int hour = int.tryParse(parts[0]) ?? 0;
+  final minute = parts[1];
+  final isPM = hour >= 12;
+  int hour12 = hour % 12;
+  if (hour12 == 0) hour12 = 12;
+  return '$hour12:$minute ${isPM ? 'م' : 'ص'}';
+}
+
+IconData getFormIcon(String form) {
+  switch (form.toLowerCase()) {
+    case 'capsule':
+    case 'كبسولة':
+      return Icons.medication_liquid_rounded;
+    case 'syrup':
+    case 'شراب':
+      return Icons.local_drink_rounded;
+    case 'injection':
+    case 'حقنة':
+      return Icons.vaccines_rounded;
+    case 'drops':
+    case 'قطرة':
+      return Icons.water_drop_rounded;
+    default:
+      return Icons.medication_rounded;
+  }
+}
+
+class TimePickerBottomSheet extends StatefulWidget {
+  const TimePickerBottomSheet({super.key, required this.initialTime});
+
+  final String initialTime;
+
+  static Future<String?> show(BuildContext context, {String initialTime = '08:00'}) {
+    return showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => TimePickerBottomSheet(initialTime: initialTime),
+    );
+  }
+
+  @override
+  State<TimePickerBottomSheet> createState() => _TimePickerBottomSheetState();
+}
+
+class _TimePickerBottomSheetState extends State<TimePickerBottomSheet> {
+  late int _hour12;
+  late int _minute;
+  late bool _isPM;
+
+  @override
+  void initState() {
+    super.initState();
+    final parts = widget.initialTime.split(':');
+    final hour24 = int.tryParse(parts.isNotEmpty ? parts[0] : '8') ?? 8;
+    _minute = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
+    _isPM = hour24 >= 12;
+    _hour12 = hour24 % 12;
+    if (_hour12 == 0) _hour12 = 12;
+  }
+
+  void _incrementHour() {
+    setState(() {
+      _hour12 = _hour12 >= 12 ? 1 : _hour12 + 1;
+    });
+  }
+
+  void _decrementHour() {
+    setState(() {
+      _hour12 = _hour12 <= 1 ? 12 : _hour12 - 1;
+    });
+  }
+
+  void _incrementMinute() {
+    setState(() {
+      _minute = (_minute + 5) % 60;
+    });
+  }
+
+  void _decrementMinute() {
+    setState(() {
+      _minute = (_minute - 5 + 60) % 60;
+    });
+  }
+
+  String _to24HourString() {
+    int hour24 = _hour12 % 12;
+    if (_isPM) hour24 += 12;
+    return '${hour24.toString().padLeft(2, '0')}:${_minute.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor = isDark ? const Color(0xFF1A2C3D) : AppColors.surface;
+    final textColor = isDark ? const Color(0xFFF1F5F9) : AppColors.text;
+    final outlineColor = isDark ? const Color(0xFF2A4054) : const Color(0xFFE2E8F0);
+    final buttonBoxColor = isDark ? const Color(0xFF142433) : const Color(0xFFFFFFFF);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 44,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF3B5266) : const Color(0xFFD1D5DB),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(
+              'إضافة وقت',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: textColor,
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildStepperColumn(
+                  value: '$_hour12',
+                  onUp: _incrementHour,
+                  onDown: _decrementHour,
+                  textColor: textColor,
+                  outlineColor: outlineColor,
+                  buttonBoxColor: buttonBoxColor,
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Transform.rotate(
+                        angle: 0.785398,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF75B9D1) : const Color(0xFF5A7184),
+                            borderRadius: BorderRadius.circular(1.5),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Transform.rotate(
+                        angle: 0.785398,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF75B9D1) : const Color(0xFF5A7184),
+                            borderRadius: BorderRadius.circular(1.5),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _buildStepperColumn(
+                  value: _minute.toString().padLeft(2, '0'),
+                  onUp: _incrementMinute,
+                  onDown: _decrementMinute,
+                  textColor: textColor,
+                  outlineColor: outlineColor,
+                  buttonBoxColor: buttonBoxColor,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildPeriodPill(
+                    label: 'مساءً',
+                    isSelected: _isPM,
+                    onTap: () => setState(() => _isPM = true),
+                    isDark: isDark,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: _buildPeriodPill(
+                    label: 'صباحاً',
+                    isSelected: !_isPM,
+                    onTap: () => setState(() => _isPM = false),
+                    isDark: isDark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            width: double.infinity,
+            height: 54,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDark ? const Color(0xFF75B9D1) : const Color(0xFF24697F),
+                foregroundColor: isDark ? const Color(0xFF0F2432) : Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 0,
+              ),
+              onPressed: () => Navigator.of(context).pop(_to24HourString()),
+              child: const Text(
+                'تأكيد الوقت',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'إلغاء',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: isDark ? const Color(0xFF75B9D1) : const Color(0xFF24697F),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepperColumn({
+    required String value,
+    required VoidCallback onUp,
+    required VoidCallback onDown,
+    required Color textColor,
+    required Color outlineColor,
+    required Color buttonBoxColor,
+  }) {
+    return Column(
+      children: [
+        InkWell(
+          onTap: onUp,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            width: 76,
+            height: 48,
+            decoration: BoxDecoration(
+              color: buttonBoxColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: outlineColor, width: 1.2),
+            ),
+            child: Icon(Icons.keyboard_arrow_up_rounded, size: 30, color: textColor),
+          ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: 80,
+          child: Text(
+            value,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 54,
+              fontWeight: FontWeight.w800,
+              color: textColor,
+              letterSpacing: -1,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        InkWell(
+          onTap: onDown,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            width: 76,
+            height: 48,
+            decoration: BoxDecoration(
+              color: buttonBoxColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: outlineColor, width: 1.2),
+            ),
+            child: Icon(Icons.keyboard_arrow_down_rounded, size: 30, color: textColor),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPeriodPill({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
+    final selectedBg = isDark ? const Color(0xFF1E3547) : const Color(0xFFE2F0F4);
+    final unselectedBg = isDark ? const Color(0xFF142433) : Colors.white;
+    final selectedBorder = isDark ? const Color(0xFF4C8DAB) : const Color(0xFF4C8DAB);
+    final unselectedBorder = isDark ? const Color(0xFF2A3F53) : const Color(0xFFCBD5E1);
+    final selectedText = isDark ? const Color(0xFF75B9D1) : const Color(0xFF1E5B6E);
+    final unselectedText = isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(30),
+      child: Container(
+        height: 48,
+        decoration: BoxDecoration(
+          color: isSelected ? selectedBg : unselectedBg,
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(
+            color: isSelected ? selectedBorder : unselectedBorder,
+            width: 1.5,
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 16,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? selectedText : unselectedText,
+              ),
+            ),
+            if (isSelected) ...[
+              const SizedBox(width: 8),
+              Icon(Icons.check_rounded, size: 20, color: selectedText),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class AddAppointmentScreen extends StatefulWidget {
-  const AddAppointmentScreen({super.key});
+  const AddAppointmentScreen({super.key, required this.database});
+
+  final AppDatabase database;
 
   @override
   State<AddAppointmentScreen> createState() => _AddAppointmentScreenState();
@@ -681,11 +1166,14 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
   final _strengthController = TextEditingController();
   final _notesController = TextEditingController();
   int _step = 0;
-  String _unit = 'mg';
+  String _unit = 'مغ';
   String _form = 'tablet';
+  final List<String> _localTimes = ['08:00'];
   bool _everyDay = true;
+  final Set<int> _selectedDays = {1, 2, 3, 4, 5, 6, 7};
   int _quantity = 30;
-  final int _threshold = 7;
+  bool _lowStockAlert = true;
+  int _threshold = 7;
 
   @override
   void dispose() {
@@ -695,16 +1183,37 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
     super.dispose();
   }
 
-  void _next() {
+  Future<void> _next() async {
     final strings = S.of(context);
     if (_step == 0 && _nameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(strings.medicationNameRequired)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(strings.medicationNameRequired)),
+      );
+      return;
+    }
+    if (_step == 1 && _localTimes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('يرجى إضافة وقت تذكير واحد على الأقل')),
+      );
       return;
     }
     if (_step == 2) {
-      Navigator.of(context).pop(true);
+      final strengthText = _strengthController.text.trim().isEmpty
+          ? null
+          : '${_strengthController.text.trim()} $_unit';
+      await widget.database.addMedicationWithReminders(
+        name: _nameController.text.trim(),
+        strength: strengthText,
+        form: _form,
+        stockQuantity: _quantity,
+        stockThreshold: _lowStockAlert ? _threshold : 0,
+        localTimes: _localTimes,
+        everyDay: _everyDay,
+        activeDays: _everyDay ? 'all' : _selectedDays.join(','),
+      );
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
     } else {
       setState(() => _step++);
     }
@@ -722,9 +1231,9 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
   Widget build(BuildContext context) {
     final strings = S.of(context);
     final titles = [
-      strings.addStepOne,
-      strings.addStepTwo,
-      strings.addStepThree,
+      'الخطوة 1 من 3 · البيانات الأساسية',
+      'الخطوة 2 من 3 · المواعيد والأيام',
+      'الخطوة 3 من 3 · المخزون والمراجعة',
     ];
 
     return Scaffold(
@@ -791,7 +1300,7 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
           textInputAction: TextInputAction.next,
           decoration: InputDecoration(
             labelText: strings.medicationName,
-            hintText: strings.medicationNameHint,
+            hintText: 'مثال: باراسيتامول أو ميتفورمين',
           ),
         ),
         const SizedBox(height: 16),
@@ -803,19 +1312,29 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
                   labelText: strings.strengthOptional,
-                  hintText: strings.strengthHint,
+                  hintText: 'مثال: 500',
                 ),
               ),
             ),
             const SizedBox(width: 12),
-            DropdownButton<String>(
-              value: _unit,
-              onChanged: (value) => setState(() => _unit = value ?? _unit),
-              items: const [
-                DropdownMenuItem(value: 'mg', child: Text('mg')),
-                DropdownMenuItem(value: 'unit', child: Text('unit')),
-                DropdownMenuItem(value: 'ml', child: Text('ml')),
-              ],
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Theme.of(context).colorScheme.outline),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _unit,
+                  onChanged: (value) => setState(() => _unit = value ?? _unit),
+                  items: const [
+                    DropdownMenuItem(value: 'مغ', child: Text('مغ')),
+                    DropdownMenuItem(value: 'وحدة', child: Text('وحدة')),
+                    DropdownMenuItem(value: 'مل', child: Text('مل')),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
@@ -825,28 +1344,39 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 12),
-        _formChoice(context, strings.tablet, 'tablet'),
-        _formChoice(context, strings.capsule, 'capsule'),
-        _formChoice(context, strings.syrup, 'syrup'),
-        _formChoice(context, strings.injection, 'injection'),
-        _formChoice(context, strings.drops, 'drops'),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _formChoice(context, strings.tablet, 'tablet', Icons.medication_rounded),
+            _formChoice(context, strings.capsule, 'capsule', Icons.medication_liquid_rounded),
+            _formChoice(context, strings.syrup, 'syrup', Icons.local_drink_rounded),
+            _formChoice(context, strings.injection, 'injection', Icons.vaccines_rounded),
+            _formChoice(context, strings.drops, 'drops', Icons.water_drop_rounded),
+          ],
+        ),
       ],
     );
   }
 
-  Widget _formChoice(BuildContext context, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: _form == value,
-        onSelected: (_) => setState(() => _form = value),
-      ),
+  Widget _formChoice(BuildContext context, String label, String value, IconData icon) {
+    final isSelected = _form == value;
+    final scheme = Theme.of(context).colorScheme;
+    return ChoiceChip(
+      avatar: Icon(icon, size: 18, color: isSelected ? scheme.onPrimary : scheme.primary),
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (_) => setState(() => _form = value),
     );
   }
 
   Widget _scheduleStep(BuildContext context) {
     final strings = S.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? AppColors.darkSurface : AppColors.surface;
+    final outlineColor = isDark ? AppColors.darkOutline : AppColors.outline;
+    final textColor = isDark ? AppColors.darkText : AppColors.text;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -855,29 +1385,112 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 12),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.schedule_rounded),
-          title: const Text('8:00 ص'),
-          trailing: IconButton(
-            tooltip: strings.back,
-            onPressed: () {},
-            icon: const Icon(Icons.edit_outlined),
+        for (int i = 0; i < _localTimes.length; i++)
+          Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: outlineColor, width: 1.2),
+            ),
+            child: Row(
+              children: [
+                if (_localTimes.length > 1)
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
+                    tooltip: 'حذف',
+                    onPressed: () => setState(() => _localTimes.removeAt(i)),
+                  )
+                else
+                  const IconButton(
+                    icon: Icon(Icons.delete_outline_rounded, color: Colors.grey),
+                    onPressed: null,
+                  ),
+                const Spacer(),
+                InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () async {
+                    final picked = await TimePickerBottomSheet.show(
+                      context,
+                      initialTime: _localTimes[i],
+                    );
+                    if (picked != null && mounted) {
+                      setState(() {
+                        _localTimes[i] = picked;
+                        _localTimes.sort();
+                      });
+                    }
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          formatTimeArabic(_localTimes[i]),
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: textColor,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Icon(
+                          Icons.access_time_rounded,
+                          color: isDark ? AppColors.primaryDark : AppColors.primary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        OutlinedButton.icon(
-          onPressed: () {},
-          icon: const Icon(Icons.add_rounded),
-          label: Text(strings.addTime),
+        const SizedBox(height: 6),
+        SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+            onPressed: () async {
+              final picked = await TimePickerBottomSheet.show(context);
+              if (picked != null && mounted) {
+                setState(() {
+                  if (!_localTimes.contains(picked)) {
+                    _localTimes.add(picked);
+                    _localTimes.sort();
+                  }
+                });
+              }
+            },
+            icon: const Icon(Icons.add_rounded),
+            label: Text(strings.addTime),
+          ),
         ),
         const SizedBox(height: 28),
         Text(strings.days, style: Theme.of(context).textTheme.titleMedium),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          value: _everyDay,
-          onChanged: (value) => setState(() => _everyDay = value),
-          title: Text(strings.everyDay),
-          subtitle: Text(strings.everyDayDescription),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: outlineColor, width: 1.2),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _everyDay,
+              onChanged: (value) => setState(() => _everyDay = value),
+              title: Text(strings.everyDay),
+              subtitle: Text(strings.everyDayDescription),
+            ),
+          ),
         ),
       ],
     );
@@ -885,6 +1498,7 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
 
   Widget _reviewStep(BuildContext context) {
     final strings = S.of(context);
+    final timesFormatted = _localTimes.map(formatTimeArabic).join('، ');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -892,8 +1506,9 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
         _reviewSection(
           context,
           strings.reminderTimes,
-          '8:00 ص · ${strings.everyDay}',
+          '$timesFormatted · ${_everyDay ? strings.everyDay : 'أيام محددة'}',
         ),
+        const SizedBox(height: 8),
         Text(
           strings.availableQuantity,
           style: Theme.of(context).textTheme.titleMedium,
@@ -902,35 +1517,60 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
           strings.availableQuantityDescription,
           style: Theme.of(context).textTheme.bodyMedium,
         ),
+        const SizedBox(height: 8),
         Row(
           children: [
             IconButton(
-              onPressed: () => setState(() => _quantity++),
-              icon: const Icon(Icons.add_circle_outline),
+              iconSize: 32,
+              onPressed: () => setState(() => _quantity = _quantity > 0 ? _quantity - 1 : 0),
+              icon: const Icon(Icons.remove_circle_outline_rounded),
             ),
-            Text('$_quantity', style: Theme.of(context).textTheme.titleLarge),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text('$_quantity', style: Theme.of(context).textTheme.headlineSmall),
+            ),
             IconButton(
-              onPressed: () =>
-                  setState(() => _quantity = _quantity > 0 ? _quantity - 1 : 0),
-              icon: const Icon(Icons.remove_circle_outline),
+              iconSize: 32,
+              onPressed: () => setState(() => _quantity++),
+              icon: const Icon(Icons.add_circle_outline_rounded),
             ),
           ],
         ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          value: true,
-          onChanged: (_) {},
-          title: Text(strings.lowStockAlert),
-          subtitle: Text(strings.lowStockAlertDescription),
+        const SizedBox(height: 16),
+        Material(
+          color: Colors.transparent,
+          child: SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _lowStockAlert,
+            onChanged: (val) => setState(() => _lowStockAlert = val),
+            title: Text(strings.lowStockAlert),
+            subtitle: Text(strings.lowStockAlertDescription),
+          ),
         ),
-        Text('${strings.alertThreshold}: $_threshold'),
-        const SizedBox(height: 12),
+        if (_lowStockAlert) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text('${strings.alertThreshold}: '),
+              IconButton(
+                onPressed: () => setState(() => _threshold = _threshold > 1 ? _threshold - 1 : 1),
+                icon: const Icon(Icons.remove_rounded),
+              ),
+              Text('$_threshold', style: Theme.of(context).textTheme.titleMedium),
+              IconButton(
+                onPressed: () => setState(() => _threshold++),
+                icon: const Icon(Icons.add_rounded),
+              ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 16),
         TextField(
           controller: _notesController,
-          maxLines: 3,
+          maxLines: 2,
           decoration: InputDecoration(
             labelText: strings.notesOptional,
-            hintText: strings.notesHint,
+            hintText: 'مثال: بعد الأكل، أو مع كوب ماء وفير',
           ),
         ),
       ],
@@ -939,20 +1579,305 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
 
   Widget _reviewSection(BuildContext context, String title, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: ListTile(
-        contentPadding: EdgeInsets.zero,
-        title: Text(title),
-        subtitle: Text(value),
-        trailing: const Icon(Icons.check_circle_outline),
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Theme.of(context).colorScheme.outline),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: Theme.of(context).textTheme.bodyMedium),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.check_circle_rounded, color: AppColors.successIcon),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class MedicationListView extends StatefulWidget {
+  const MedicationListView({
+    super.key,
+    required this.database,
+    required this.onAddAppointment,
+  });
+
+  final AppDatabase database;
+  final VoidCallback onAddAppointment;
+
+  @override
+  State<MedicationListView> createState() => _MedicationListViewState();
+}
+
+class _MedicationListViewState extends State<MedicationListView> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = S.of(context);
+    final scheme = Theme.of(context).colorScheme;
+
+    return StreamBuilder<List<Medication>>(
+      stream: widget.database.watchMedications(),
+      builder: (context, snapshot) {
+        final allMedications = snapshot.data ?? [];
+        final filtered = allMedications
+            .where((m) => m.name.toLowerCase().contains(_query.toLowerCase()))
+            .toList();
+
+        if (allMedications.isEmpty) {
+          return CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                sliver: SliverToBoxAdapter(
+                  child: Text(
+                    strings.medicationsTitle,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                ),
+              ),
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.medication_outlined,
+                          size: 64,
+                          color: scheme.primary,
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'لا توجد أدوية بعد',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'أضف أول دواء لنبدأ معًا ومتابعة مواعيد جرعاتك بدقة',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: widget.onAddAppointment,
+                            icon: const Icon(Icons.add_rounded),
+                            label: Text(strings.addMedication),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+
+        final lowStockMedications = allMedications
+            .where((m) => m.stockQuantity <= m.stockThreshold)
+            .toList();
+
+        return CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+              sliver: SliverToBoxAdapter(
+                child: Text(
+                  strings.medicationsTitle,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              sliver: SliverToBoxAdapter(
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (value) => setState(() => _query = value),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    labelText: strings.searchMedication,
+                  ),
+                ),
+              ),
+            ),
+            if (lowStockMedications.isNotEmpty)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                sliver: SliverToBoxAdapter(
+                  child: _LowStockCard(
+                    title: strings.lowStockTitle,
+                    body: '${strings.lowStockBody} (${lowStockMedications.length})',
+                  ),
+                ),
+              ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+              sliver: SliverToBoxAdapter(
+                child: Text(
+                  '${strings.medicationCount}: ${filtered.length}',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              sliver: SliverList.builder(
+                itemCount: filtered.length,
+                itemBuilder: (context, index) {
+                  final medication = filtered[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _MedicationCard(
+                      name: medication.name,
+                      strength: medication.strength ?? medication.form,
+                      stock: medication.stockQuantity,
+                      form: medication.form,
+                      scheme: scheme,
+                      lowStockLabel: strings.lowStockOnly,
+                      remainingLabel: strings.remainingStock,
+                    ),
+                  );
+                },
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+              sliver: SliverToBoxAdapter(
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: widget.onAddAppointment,
+                    icon: const Icon(Icons.add_rounded),
+                    label: Text(strings.addAppointment),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _MedicationCard extends StatelessWidget {
+  const _MedicationCard({
+    required this.name,
+    required this.strength,
+    required this.stock,
+    required this.form,
+    required this.scheme,
+    required this.lowStockLabel,
+    required this.remainingLabel,
+  });
+
+  final String name;
+  final String strength;
+  final int stock;
+  final String form;
+  final ColorScheme scheme;
+  final String lowStockLabel;
+  final String remainingLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final isLow = stock <= 7;
+    final statusColor = isLow ? scheme.error : scheme.primary;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: scheme.outline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: scheme.tertiary,
+                foregroundColor: scheme.primary,
+                child: Icon(getFormIcon(form)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name, style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 2),
+                    Text(
+                      strength,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_left_rounded),
+            ],
+          ),
+          const SizedBox(height: 12),
+          LinearProgressIndicator(
+            value: (stock / 100).clamp(0.0, 1.0),
+            backgroundColor: scheme.tertiary,
+            valueColor: AlwaysStoppedAnimation(statusColor),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            isLow ? '$lowStockLabel: $stock' : '$remainingLabel: $stock',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: isLow ? scheme.error : scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.onToggleLocale});
+  const HomeScreen({
+    super.key,
+    required this.database,
+    required this.onToggleLocale,
+  });
 
+  final AppDatabase database;
   final VoidCallback onToggleLocale;
 
   @override
@@ -962,17 +1887,17 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   DateTime _selectedDate = DateUtils.dateOnly(DateTime.now());
   int _selectedNavigation = 0;
-  bool _hasAppointments = false;
 
   Future<void> _openAddAppointment() async {
     final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(builder: (_) => const AddAppointmentScreen()),
+      MaterialPageRoute<bool>(
+        builder: (_) => AddAppointmentScreen(database: widget.database),
+      ),
     );
     if (saved == true && mounted) {
-      setState(() => _hasAppointments = true);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(S.of(context).appointmentSaved)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(S.of(context).appointmentSaved)),
+      );
     }
   }
 
@@ -995,147 +1920,187 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-              sliver: SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      greeting,
-                      style: Theme.of(context).textTheme.headlineMedium,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${strings.todayPrefix} $formattedDate',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ],
-                ),
+        child: _selectedNavigation == 1
+            ? MedicationListView(
+                database: widget.database,
+                onAddAppointment: _openAddAppointment,
+              )
+            : StreamBuilder<List<ReminderWithMedication>>(
+                stream: widget.database.watchTodayReminders(),
+                builder: (context, snapshot) {
+                  final reminders = snapshot.data ?? [];
+                  final hasReminders = reminders.isNotEmpty;
+
+                  // Group reminders
+                  final morningReminders = reminders.where((r) {
+                    final h = int.tryParse(r.reminder.localTime.split(':')[0]) ?? 0;
+                    return h < 12;
+                  }).toList();
+
+                  final afternoonReminders = reminders.where((r) {
+                    final h = int.tryParse(r.reminder.localTime.split(':')[0]) ?? 0;
+                    return h >= 12 && h < 17;
+                  }).toList();
+
+                  final eveningReminders = reminders.where((r) {
+                    final h = int.tryParse(r.reminder.localTime.split(':')[0]) ?? 0;
+                    return h >= 17;
+                  }).toList();
+
+                  final hasLowStock = reminders.any(
+                    (r) => r.medication.stockQuantity <= r.medication.stockThreshold,
+                  );
+
+                  return CustomScrollView(
+                    slivers: [
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                        sliver: SliverToBoxAdapter(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                greeting,
+                                style: Theme.of(context).textTheme.headlineMedium,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${strings.todayPrefix} $formattedDate',
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 8,
+                        ),
+                        sliver: SliverToBoxAdapter(
+                          child: _WeekStrip(
+                            selectedDate: _selectedDate,
+                            onSelect: (date) =>
+                                setState(() => _selectedDate = date),
+                          ),
+                        ),
+                      ),
+                      if (hasReminders) ...[
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                          sliver: SliverToBoxAdapter(
+                            child: _ProgressCard(
+                              title: strings.dailyProgress,
+                              completedLabel: strings.completedDoses,
+                              nextLabel: strings.nextDose,
+                              nextDose: formatTimeArabic(reminders.first.reminder.localTime),
+                              primary: colors.primary,
+                            ),
+                          ),
+                        ),
+                        if (hasLowStock)
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                            sliver: SliverToBoxAdapter(
+                              child: _LowStockCard(
+                                title: strings.lowStockTitle,
+                                body: strings.lowStockBody,
+                              ),
+                            ),
+                          ),
+                        if (morningReminders.isNotEmpty)
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                            sliver: SliverList.list(
+                              children: [
+                                _DoseSectionHeader(
+                                  title: strings.morning,
+                                  count: '${morningReminders.length} جرعات',
+                                  icon: Icons.wb_sunny_outlined,
+                                ),
+                                for (final r in morningReminders) ...[
+                                  _DoseTile(
+                                    medication: r.medication.name,
+                                    detail: r.medication.strength ?? r.medication.form,
+                                    time: formatTimeArabic(r.reminder.localTime),
+                                    status: strings.upcoming,
+                                    statusColor: colors.primary,
+                                    icon: getFormIcon(r.medication.form),
+                                  ),
+                                  const SizedBox(height: 12),
+                                ],
+                              ],
+                            ),
+                          ),
+                        if (afternoonReminders.isNotEmpty)
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                            sliver: SliverList.list(
+                              children: [
+                                _DoseSectionHeader(
+                                  title: strings.afternoon,
+                                  count: '${afternoonReminders.length} جرعات',
+                                  icon: Icons.wb_twilight_outlined,
+                                ),
+                                for (final r in afternoonReminders) ...[
+                                  _DoseTile(
+                                    medication: r.medication.name,
+                                    detail: r.medication.strength ?? r.medication.form,
+                                    time: formatTimeArabic(r.reminder.localTime),
+                                    status: strings.upcoming,
+                                    statusColor: colors.primary,
+                                    icon: getFormIcon(r.medication.form),
+                                  ),
+                                  const SizedBox(height: 12),
+                                ],
+                              ],
+                            ),
+                          ),
+                        if (eveningReminders.isNotEmpty)
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                            sliver: SliverList.list(
+                              children: [
+                                _DoseSectionHeader(
+                                  title: strings.evening,
+                                  count: '${eveningReminders.length} جرعات',
+                                  icon: Icons.nightlight_outlined,
+                                ),
+                                for (final r in eveningReminders) ...[
+                                  _DoseTile(
+                                    medication: r.medication.name,
+                                    detail: r.medication.strength ?? r.medication.form,
+                                    time: formatTimeArabic(r.reminder.localTime),
+                                    status: strings.upcoming,
+                                    statusColor: colors.primary,
+                                    icon: getFormIcon(r.medication.form),
+                                  ),
+                                  const SizedBox(height: 12),
+                                ],
+                              ],
+                            ),
+                          ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 96)),
+                      ] else
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: _EmptyTodayState(
+                            title: strings.emptyTodayTitle,
+                            body: strings.emptyTodayBody,
+                            actionLabel: strings.addAppointment,
+                            onAdd: _openAddAppointment,
+                          ),
+                        ),
+                    ],
+                  );
+                },
               ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              sliver: SliverToBoxAdapter(
-                child: _WeekStrip(
-                  selectedDate: _selectedDate,
-                  onSelect: (date) => setState(() => _selectedDate = date),
-                ),
-              ),
-            ),
-            if (_hasAppointments) ...[
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                sliver: SliverToBoxAdapter(
-                  child: _ProgressCard(
-                    title: strings.dailyProgress,
-                    completedLabel: strings.completedDoses,
-                    nextLabel: strings.nextDose,
-                    nextDose: strings.nextDoseValue,
-                    primary: colors.primary,
-                  ),
-                ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                sliver: SliverToBoxAdapter(
-                  child: _LowStockCard(
-                    title: strings.lowStockTitle,
-                    body: strings.lowStockBody,
-                  ),
-                ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-                sliver: SliverList.list(
-                  children: [
-                    _DoseSectionHeader(
-                      title: strings.morning,
-                      count: strings.threeDoses,
-                      icon: Icons.wb_sunny_outlined,
-                    ),
-                    _DoseTile(
-                      medication: strings.firstMedication,
-                      detail: strings.firstMedicationDetail,
-                      time: strings.firstDoseTime,
-                      status: strings.taken,
-                      statusColor: AppColors.successStrong,
-                      icon: Icons.medication_liquid_rounded,
-                    ),
-                    const SizedBox(height: 12),
-                    _DoseTile(
-                      medication: strings.secondMedication,
-                      detail: strings.secondMedicationDetail,
-                      time: strings.firstDoseTime,
-                      status: strings.missed,
-                      statusColor: AppColors.error,
-                      icon: Icons.vaccines_outlined,
-                    ),
-                    const SizedBox(height: 20),
-                    _DoseSectionHeader(
-                      title: strings.afternoon,
-                      count: strings.twoDoses,
-                      icon: Icons.wb_twilight_outlined,
-                    ),
-                    _DoseTile(
-                      medication: strings.firstMedication,
-                      detail: strings.firstMedicationDetail,
-                      time: strings.secondDoseTime,
-                      status: strings.dueNow,
-                      statusColor: colors.primary,
-                      icon: Icons.medication_liquid_rounded,
-                    ),
-                    const SizedBox(height: 12),
-                    _DoseTile(
-                      medication: strings.secondMedication,
-                      detail: strings.secondMedicationDetail,
-                      time: strings.secondDoseTime,
-                      status: strings.snoozedUntil,
-                      statusColor: AppColors.warningText,
-                      icon: Icons.vaccines_outlined,
-                    ),
-                    const SizedBox(height: 20),
-                    _DoseSectionHeader(
-                      title: strings.evening,
-                      count: strings.twoDoses,
-                      icon: Icons.nightlight_outlined,
-                    ),
-                    _DoseTile(
-                      medication: strings.firstMedication,
-                      detail: strings.firstMedicationDetail,
-                      time: strings.nextDoseValue,
-                      status: strings.upcoming,
-                      statusColor: colors.primary,
-                      icon: Icons.medication_liquid_rounded,
-                    ),
-                  ],
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 96)),
-            ] else
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: _EmptyTodayState(
-                  title: strings.emptyTodayTitle,
-                  body: strings.emptyTodayBody,
-                  actionLabel: strings.addAppointment,
-                  onAdd: _openAddAppointment,
-                ),
-              ),
-          ],
-        ),
       ),
-      floatingActionButton: _hasAppointments
-          ? FloatingActionButton(
-              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(strings.addMedicationComingSoon)),
-              ),
-              tooltip: strings.addAppointment,
-              child: const Icon(Icons.add_rounded),
-            )
-          : null,
+      floatingActionButton: FloatingActionButton(
+        onPressed: _openAddAppointment,
+        tooltip: strings.addAppointment,
+        child: const Icon(Icons.add_rounded),
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedNavigation,
         onDestinationSelected: (index) =>
@@ -1381,3 +2346,4 @@ class _DoseTile extends StatelessWidget {
     );
   }
 }
+

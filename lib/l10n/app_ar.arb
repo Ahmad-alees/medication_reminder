@@ -8,6 +8,7 @@
   "onboardingBack": "رجوع",
   "onboardingNext": "التالي",
   "onboardingStart": "لنبدأ",
+    "medications": "أدويتي",
   "onboardingStepOne": "الشاشة 1 من 3",
   "onboardingStepTwo": "الشاشة 2 من 3",
   "onboardingStepThree": "الشاشة 3 من 3",
@@ -50,6 +51,13 @@
   "emptyTodayTitle": "لا توجد مواعيد مضافة",
   "emptyTodayBody": "أضف موعدًا لدوائك حتى نذكّرك به في الوقت المناسب.",
   "addAppointment": "إضافة موعد",
+  "medicationsTitle": "أدويتي",
+  "searchMedication": "ابحث عن دواء",
+  "medicationCount": "5 أدوية",
+  "remainingStock": "المتبقي",
+  "lowStockOnly": "بقي قليلًا",
+  "threeTimesDaily": "3 مرات يوميًا · كل يوم",
+  "onceDaily": "مرة واحدة يوميًا · كل يوم",
   "addAppointmentTitle": "إضافة موعد",
   "addStepOne": "الخطوة 1 من 3 · الاسم والتركيز",
   "addStepTwo": "الخطوة 2 من 3 · المواعيد والأيام",
@@ -103,6 +111,33 @@
   "secondDoseTime": "1:00 م",
   "pending": "بانتظار",
   "taken": "تم أخذها",
+  "snoozed": "مؤجلة",
+  "takenAction": "تم أخذ الدواء",
+  "snoozeAction": "ذكّرني بعد 10 دقائق",
+  "skipAction": "تخطي",
+  "doseLoggedTitle": "أحسنت! سُجّلت الجرعة",
+  "doseLoggedBody": "تم تسجيل هذه الجرعة. اتبع تعليمات طبيبك دائمًا.",
+  "nextDoseTimeLabel": "الجرعة القادمة",
+  "noMoreDosesToday": "لا توجد جرعات متبقية اليوم",
+  "escalationWarning": "تأخير الجرعات أو نسيانها قد يؤثر على علاجك — اتبع تعليمات طبيبك.",
+  "reportsPlaceholder": "تقارير الالتزام ستُعرض هنا من سجل الجرعات المحفوظ.",
+  "settingsPlaceholder": "إعدادات المنبّه واللغة ستُضاف هنا.",
+  "reminderDisclaimer": "هذا التطبيق للتذكير فقط، ولا يقدّم نصيحة طبية.",
+  "dosesCount": "{count} جرعات",
+  "@dosesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dailyProgressCount": "{taken} من {total} جرعات اليوم",
+  "@dailyProgressCount": {
+    "placeholders": {
+      "taken": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
   "addMedication": "إضافة دواء",
   "addMedicationComingSoon": "إضافة الدواء ستكون متاحة في الخطوة التالية",
   "today": "اليوم",

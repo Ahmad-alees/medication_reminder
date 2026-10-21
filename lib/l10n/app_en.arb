@@ -50,6 +50,13 @@
   "emptyTodayTitle": "No appointments added",
   "emptyTodayBody": "Add a medication time so we can remind you at the right moment.",
   "addAppointment": "Add appointment",
+  "medicationsTitle": "My medications",
+  "searchMedication": "Search medication",
+  "medicationCount": "5 medications",
+  "remainingStock": "Remaining",
+  "lowStockOnly": "Running low",
+  "threeTimesDaily": "3 times daily · Every day",
+  "onceDaily": "Once daily · Every day",
   "addAppointmentTitle": "Add appointment",
   "addStepOne": "Step 1 of 3 · Name and strength",
   "addStepTwo": "Step 2 of 3 · Times and days",
@@ -72,6 +79,7 @@
   "addTime": "Add time",
   "days": "Days",
   "everyDay": "Every day",
+  "medications": "My medications",
   "everyDayDescription": "You receive reminders throughout the week",
   "review": "Review",
   "availableQuantity": "Available quantity",
@@ -103,6 +111,33 @@
   "secondDoseTime": "1:00 PM",
   "pending": "Pending",
   "taken": "Taken",
+  "snoozed": "Snoozed",
+  "takenAction": "Taken",
+  "snoozeAction": "Remind me in 10 minutes",
+  "skipAction": "Skip",
+  "doseLoggedTitle": "Well done! The dose was logged",
+  "doseLoggedBody": "This dose was recorded. Always follow your doctor's instructions.",
+  "nextDoseTimeLabel": "Next dose",
+  "noMoreDosesToday": "No remaining doses today",
+  "escalationWarning": "Missing or delaying doses may affect your treatment — follow your doctor's instructions.",
+  "reportsPlaceholder": "Adherence reports will appear here from the saved dose log.",
+  "settingsPlaceholder": "Alarm and language settings will be added here.",
+  "reminderDisclaimer": "This app is a reminder tool only. It does not give medical advice.",
+  "dosesCount": "{count} doses",
+  "@dosesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dailyProgressCount": "{taken} of {total} doses today",
+  "@dailyProgressCount": {
+    "placeholders": {
+      "taken": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
   "addMedication": "Add medication",
   "addMedicationComingSoon": "Adding a medication will be available in the next step",
   "today": "Today",

@@ -34,6 +34,9 @@ class SEn extends S {
   String get onboardingStart => 'Let\'s start';
 
   @override
+  String get medications => 'Medications';
+
+  @override
   String get onboardingStepOne => 'Screen 1 of 3';
 
   @override
@@ -170,6 +173,27 @@ class SEn extends S {
 
   @override
   String get addAppointment => 'Add appointment';
+
+  @override
+  String get medicationsTitle => 'My medications';
+
+  @override
+  String get searchMedication => 'Search medication';
+
+  @override
+  String get medicationCount => '5 medications';
+
+  @override
+  String get remainingStock => 'Remaining';
+
+  @override
+  String get lowStockOnly => 'Running low';
+
+  @override
+  String get threeTimesDaily => '3 times daily · Every day';
+
+  @override
+  String get onceDaily => 'Once daily · Every day';
 
   @override
   String get addAppointmentTitle => 'Add appointment';
@@ -332,6 +356,57 @@ class SEn extends S {
   String get taken => 'Taken';
 
   @override
+  String get snoozed => 'Snoozed';
+
+  @override
+  String get takenAction => 'Taken';
+
+  @override
+  String get snoozeAction => 'Remind me in 10 minutes';
+
+  @override
+  String get skipAction => 'Skip';
+
+  @override
+  String get doseLoggedTitle => 'Well done! The dose was logged';
+
+  @override
+  String get doseLoggedBody =>
+      'This dose was recorded. Always follow your doctor\'s instructions.';
+
+  @override
+  String get nextDoseTimeLabel => 'Next dose';
+
+  @override
+  String get noMoreDosesToday => 'No remaining doses today';
+
+  @override
+  String get escalationWarning =>
+      'Missing or delaying doses may affect your treatment — follow your doctor\'s instructions.';
+
+  @override
+  String get reportsPlaceholder =>
+      'Adherence reports will appear here from the saved dose log.';
+
+  @override
+  String get settingsPlaceholder =>
+      'Alarm and language settings will be added here.';
+
+  @override
+  String get reminderDisclaimer =>
+      'This app is a reminder tool only. It does not give medical advice.';
+
+  @override
+  String dosesCount(int count) {
+    return '$count doses';
+  }
+
+  @override
+  String dailyProgressCount(int taken, int total) {
+    return '$taken of $total doses today';
+  }
+
+  @override
   String get addMedication => 'Add medication';
 
   @override
@@ -340,9 +415,6 @@ class SEn extends S {
 
   @override
   String get today => 'Today';
-
-  @override
-  String get medications => 'Medications';
 
   @override
   String get reports => 'Reports';

@@ -34,6 +34,9 @@ class SAr extends S {
   String get onboardingStart => 'لنبدأ';
 
   @override
+  String get medications => 'الأدوية';
+
+  @override
   String get onboardingStepOne => 'الشاشة 1 من 3';
 
   @override
@@ -167,6 +170,27 @@ class SAr extends S {
 
   @override
   String get addAppointment => 'إضافة موعد';
+
+  @override
+  String get medicationsTitle => 'أدويتي';
+
+  @override
+  String get searchMedication => 'ابحث عن دواء';
+
+  @override
+  String get medicationCount => '5 أدوية';
+
+  @override
+  String get remainingStock => 'المتبقي';
+
+  @override
+  String get lowStockOnly => 'بقي قليلًا';
+
+  @override
+  String get threeTimesDaily => '3 مرات يوميًا · كل يوم';
+
+  @override
+  String get onceDaily => 'مرة واحدة يوميًا · كل يوم';
 
   @override
   String get addAppointmentTitle => 'إضافة موعد';
@@ -329,6 +353,56 @@ class SAr extends S {
   String get taken => 'تم أخذها';
 
   @override
+  String get snoozed => 'مؤجلة';
+
+  @override
+  String get takenAction => 'تم أخذ الدواء';
+
+  @override
+  String get snoozeAction => 'ذكّرني بعد 10 دقائق';
+
+  @override
+  String get skipAction => 'تخطي';
+
+  @override
+  String get doseLoggedTitle => 'أحسنت! سُجّلت الجرعة';
+
+  @override
+  String get doseLoggedBody =>
+      'تم تسجيل هذه الجرعة. اتبع تعليمات طبيبك دائمًا.';
+
+  @override
+  String get nextDoseTimeLabel => 'الجرعة القادمة';
+
+  @override
+  String get noMoreDosesToday => 'لا توجد جرعات متبقية اليوم';
+
+  @override
+  String get escalationWarning =>
+      'تأخير الجرعات أو نسيانها قد يؤثر على علاجك — اتبع تعليمات طبيبك.';
+
+  @override
+  String get reportsPlaceholder =>
+      'تقارير الالتزام ستُعرض هنا من سجل الجرعات المحفوظ.';
+
+  @override
+  String get settingsPlaceholder => 'إعدادات المنبّه واللغة ستُضاف هنا.';
+
+  @override
+  String get reminderDisclaimer =>
+      'هذا التطبيق للتذكير فقط، ولا يقدّم نصيحة طبية.';
+
+  @override
+  String dosesCount(int count) {
+    return '$count جرعات';
+  }
+
+  @override
+  String dailyProgressCount(int taken, int total) {
+    return '$taken من $total جرعات اليوم';
+  }
+
+  @override
   String get addMedication => 'إضافة دواء';
 
   @override
@@ -337,9 +411,6 @@ class SAr extends S {
 
   @override
   String get today => 'اليوم';
-
-  @override
-  String get medications => 'الأدوية';
 
   @override
   String get reports => 'التقارير';
