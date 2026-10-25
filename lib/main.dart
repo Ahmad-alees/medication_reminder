@@ -1,4 +1,6 @@
-﻿import 'dart:async';
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart' hide TextDirection;
@@ -8,15 +10,133 @@ import 'data/local/app_database.dart';
 import 'l10n/app_localizations.dart';
 
 import 'app_theme.dart';
+import 'data/dose_repository.dart';
+import 'domain/models/dose_record.dart';
+import 'domain/models/dose_status.dart';
 
-void main() {
-  runApp(const MyApp());
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+import 'features/alarm/alarm_screen.dart';
+import 'features/medications/medication_detail_screen.dart';
+import 'features/reports/reports_screen.dart';
+import 'features/settings/settings_screen.dart';
+import 'domain/rules/adherence.dart';
+import 'scheduling/alarm_scheduler.dart';
+import 'scheduling/android_alarm_scheduler.dart';
+import 'scheduling/reminder_scheduler_service.dart';
+
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
+
+Future<void> handleNotificationResponse(
+  NotificationResponse response,
+  AppDatabase database,
+  AlarmScheduler scheduler,
+) async {
+  final payload = response.payload;
+  if (payload == null || !payload.contains('|')) return;
+
+  final parts = payload.split('|');
+  final reminderId = int.tryParse(parts[0]);
+  final scheduledAtUtc = DateTime.tryParse(parts[1]);
+  if (reminderId == null || scheduledAtUtc == null) return;
+
+  final repository = DoseRepository(database: database, scheduler: scheduler);
+
+  final dose =
+      await repository.getDose(reminderId, scheduledAtUtc) ??
+      DoseRecord(
+        reminderId: reminderId,
+        scheduledAtUtc: scheduledAtUtc,
+        utcOffsetMinutes: DateTime.now().timeZoneOffset.inMinutes,
+        status: DoseStatus.pending,
+      );
+
+  if (response.actionId == AndroidAlarmScheduler.actionTake) {
+    await repository.take(dose);
+    return;
+  }
+
+  if (response.actionId == AndroidAlarmScheduler.actionSnooze) {
+    await repository.snooze(dose);
+    return;
+  }
+
+  // Tapped notification body -> navigate to AlarmScreen
+  final context = appNavigatorKey.currentContext;
+  if (context != null) {
+    final reminderRow = await (database.select(
+      database.reminders,
+    )..where((r) => r.id.equals(reminderId))).getSingleOrNull();
+    final medRow = reminderRow != null
+        ? await (database.select(database.medications)
+                ..where((m) => m.id.equals(reminderRow.medicationId)))
+              .getSingleOrNull()
+        : null;
+
+    if (context.mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => AlarmScreen(
+            repository: repository,
+            dose: dose,
+            medicationName: medRow?.name ?? 'تذكير بالدواء',
+            detail: medRow?.strength ?? medRow?.form ?? '',
+            localTimeLabel: reminderRow?.localTime ?? '',
+            showEscalation: dose.escalationSent,
+          ),
+        ),
+      );
+    }
+  }
+}
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final database = AppDatabase();
+  final alarmScheduler = AndroidAlarmScheduler();
+  final schedulerService = ReminderSchedulerService(
+    database: database,
+    scheduler: alarmScheduler,
+  );
+
+  await alarmScheduler.initialize(
+    onNotificationResponse: (response) =>
+        handleNotificationResponse(response, database, alarmScheduler),
+  );
+
+  final launchDetails = await alarmScheduler.getLaunchDetails();
+  if (launchDetails?.didNotificationLaunchApp ?? false) {
+    final response = launchDetails?.notificationResponse;
+    if (response != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        handleNotificationResponse(response, database, alarmScheduler);
+      });
+    }
+  }
+
+  // Reschedule future rolling window alarms on startup
+  unawaited(schedulerService.rescheduleAll());
+
+  runApp(
+    MyApp(
+      database: database,
+      scheduler: alarmScheduler,
+      schedulerService: schedulerService,
+    ),
+  );
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key, this.database});
+  const MyApp({
+    super.key,
+    this.database,
+    this.scheduler,
+    this.schedulerService,
+  });
 
   final AppDatabase? database;
+  final AlarmScheduler? scheduler;
+  final ReminderSchedulerService? schedulerService;
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -24,6 +144,8 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   late final AppDatabase _database;
+  late final AlarmScheduler _scheduler;
+  ReminderSchedulerService? _schedulerService;
   Locale _locale = const Locale('ar');
   bool? _onboardingCompleted;
   Timer? _splashTimer;
@@ -32,12 +154,16 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     _database = widget.database ?? AppDatabase();
+    _scheduler = widget.scheduler ?? const NoOpAlarmScheduler();
+    _schedulerService =
+        widget.schedulerService ??
+        ReminderSchedulerService(database: _database, scheduler: _scheduler);
     _initializeApp();
   }
 
-  Future<void> _initializeApp() async {
-    final completed = await _database.isOnboardingCompleted();
-    _splashTimer = Timer(const Duration(milliseconds: 1500), () {
+  void _initializeApp() {
+    _splashTimer = Timer(const Duration(milliseconds: 4500), () async {
+      final completed = await _database.isOnboardingCompleted();
       if (mounted) {
         setState(() => _onboardingCompleted = completed);
       }
@@ -62,6 +188,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       debugShowCheckedModeBanner: false,
       locale: _locale,
       localizationsDelegates: S.localizationsDelegates,
@@ -72,7 +199,12 @@ class _MyAppState extends State<MyApp> {
       home: _onboardingCompleted == null
           ? const SplashScreen()
           : _onboardingCompleted!
-          ? HomeScreen(database: _database, onToggleLocale: _toggleLocale)
+          ? HomeScreen(
+              database: _database,
+              onToggleLocale: _toggleLocale,
+              schedulerService: _schedulerService,
+              scheduler: _scheduler,
+            )
           : OnboardingScreen(onFinish: _openPermissions),
     );
   }
@@ -98,8 +230,12 @@ class _MyAppState extends State<MyApp> {
   void _openHome(BuildContext context) {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            HomeScreen(database: _database, onToggleLocale: _toggleLocale),
+        builder: (_) => HomeScreen(
+          database: _database,
+          onToggleLocale: _toggleLocale,
+          schedulerService: _schedulerService,
+          scheduler: _scheduler,
+        ),
       ),
     );
   }
@@ -292,7 +428,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               Expanded(
                 child: PageView.builder(
                   controller: _pageController,
-                  physics: const NeverScrollableScrollPhysics(),
+                  physics: const BouncingScrollPhysics(),
                   itemCount: pages.length,
                   onPageChanged: (page) => setState(() => _currentPage = page),
                   itemBuilder: (context, index) {
@@ -497,10 +633,11 @@ class _EmptyTodayState extends StatelessWidget {
 }
 
 class _LowStockCard extends StatelessWidget {
-  const _LowStockCard({required this.title, required this.body});
+  const _LowStockCard({required this.title, required this.body, this.onTap});
 
   final String title;
   final String body;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -512,36 +649,39 @@ class _LowStockCard extends StatelessWidget {
         ? AppColors.warningTextDark
         : AppColors.warningText;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-      decoration: BoxDecoration(
-        color: warningBackground,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.inventory_2_outlined, color: warningText),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium
-                      ?.copyWith(color: warningText),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  body,
-                  style: Theme.of(context).textTheme.bodyMedium
-                      ?.copyWith(color: warningText),
-                ),
-              ],
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        decoration: BoxDecoration(
+          color: warningBackground,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.inventory_2_outlined, color: warningText),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(color: warningText),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    body,
+                    style: Theme.of(context).textTheme.bodyMedium
+                        ?.copyWith(color: warningText),
+                  ),
+                ],
+              ),
             ),
-          ),
-          Icon(Icons.chevron_left_rounded, color: warningText),
-        ],
+            Icon(Icons.chevron_left_rounded, color: warningText),
+          ],
+        ),
       ),
     );
   }
@@ -594,31 +734,18 @@ class _PermissionFlowScreenState extends State<PermissionFlowScreen> {
   }
 
   Future<void> _requestCurrentPermission() async {
-    if (const bool.fromEnvironment('FLUTTER_TEST')) {
+    if (Platform.environment.containsKey('FLUTTER_TEST')) {
       return;
     }
     try {
       if (_currentStep == 0) {
-        final status = await Permission.notification.request().timeout(
-          const Duration(milliseconds: 200),
-          onTimeout: () => PermissionStatus.denied,
-        );
-        if (status.isPermanentlyDenied) {
-          await openAppSettings();
-        }
+        await Permission.notification.request();
+        await openAppSettings();
       } else if (_currentStep == 1) {
-        final status = await Permission.scheduleExactAlarm.request().timeout(
-          const Duration(milliseconds: 200),
-          onTimeout: () => PermissionStatus.denied,
-        );
-        if (status.isPermanentlyDenied) {
-          await openAppSettings();
-        }
+        await Permission.scheduleExactAlarm.request();
+        await openAppSettings();
       } else if (_currentStep == 2) {
-        final status = await Permission.ignoreBatteryOptimizations.request().timeout(
-          const Duration(milliseconds: 200),
-          onTimeout: () => PermissionStatus.denied,
-        );
+        final status = await Permission.ignoreBatteryOptimizations.request();
         if (status.isPermanentlyDenied) {
           await openAppSettings();
         }
@@ -826,7 +953,10 @@ class TimePickerBottomSheet extends StatefulWidget {
 
   final String initialTime;
 
-  static Future<String?> show(BuildContext context, {String initialTime = '08:00'}) {
+  static Future<String?> show(
+    BuildContext context, {
+    String initialTime = '08:00',
+  }) {
     return showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -888,10 +1018,16 @@ class _TimePickerBottomSheetState extends State<TimePickerBottomSheet> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final backgroundColor = isDark ? const Color(0xFF1A2C3D) : AppColors.surface;
+    final backgroundColor = isDark
+        ? const Color(0xFF1A2C3D)
+        : AppColors.surface;
     final textColor = isDark ? const Color(0xFFF1F5F9) : AppColors.text;
-    final outlineColor = isDark ? const Color(0xFF2A4054) : const Color(0xFFE2E8F0);
-    final buttonBoxColor = isDark ? const Color(0xFF142433) : const Color(0xFFFFFFFF);
+    final outlineColor = isDark
+        ? const Color(0xFF2A4054)
+        : const Color(0xFFE2E8F0);
+    final buttonBoxColor = isDark
+        ? const Color(0xFF142433)
+        : const Color(0xFFFFFFFF);
 
     return Container(
       decoration: BoxDecoration(
@@ -948,7 +1084,9 @@ class _TimePickerBottomSheetState extends State<TimePickerBottomSheet> {
                           width: 8,
                           height: 8,
                           decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF75B9D1) : const Color(0xFF5A7184),
+                            color: isDark
+                                ? const Color(0xFF75B9D1)
+                                : const Color(0xFF5A7184),
                             borderRadius: BorderRadius.circular(1.5),
                           ),
                         ),
@@ -960,7 +1098,9 @@ class _TimePickerBottomSheetState extends State<TimePickerBottomSheet> {
                           width: 8,
                           height: 8,
                           decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF75B9D1) : const Color(0xFF5A7184),
+                            color: isDark
+                                ? const Color(0xFF75B9D1)
+                                : const Color(0xFF5A7184),
                             borderRadius: BorderRadius.circular(1.5),
                           ),
                         ),
@@ -1010,9 +1150,15 @@ class _TimePickerBottomSheetState extends State<TimePickerBottomSheet> {
             height: 54,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: isDark ? const Color(0xFF75B9D1) : const Color(0xFF24697F),
-                foregroundColor: isDark ? const Color(0xFF0F2432) : Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                backgroundColor: isDark
+                    ? const Color(0xFF75B9D1)
+                    : const Color(0xFF24697F),
+                foregroundColor: isDark
+                    ? const Color(0xFF0F2432)
+                    : Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 elevation: 0,
               ),
               onPressed: () => Navigator.of(context).pop(_to24HourString()),
@@ -1035,7 +1181,9 @@ class _TimePickerBottomSheetState extends State<TimePickerBottomSheet> {
                 fontFamily: AppTheme.fontFamily,
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: isDark ? const Color(0xFF75B9D1) : const Color(0xFF24697F),
+                color: isDark
+                    ? const Color(0xFF75B9D1)
+                    : const Color(0xFF24697F),
               ),
             ),
           ),
@@ -1065,7 +1213,11 @@ class _TimePickerBottomSheetState extends State<TimePickerBottomSheet> {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: outlineColor, width: 1.2),
             ),
-            child: Icon(Icons.keyboard_arrow_up_rounded, size: 30, color: textColor),
+            child: Icon(
+              Icons.keyboard_arrow_up_rounded,
+              size: 30,
+              color: textColor,
+            ),
           ),
         ),
         const SizedBox(height: 16),
@@ -1095,7 +1247,11 @@ class _TimePickerBottomSheetState extends State<TimePickerBottomSheet> {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: outlineColor, width: 1.2),
             ),
-            child: Icon(Icons.keyboard_arrow_down_rounded, size: 30, color: textColor),
+            child: Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 30,
+              color: textColor,
+            ),
           ),
         ),
       ],
@@ -1108,12 +1264,22 @@ class _TimePickerBottomSheetState extends State<TimePickerBottomSheet> {
     required VoidCallback onTap,
     required bool isDark,
   }) {
-    final selectedBg = isDark ? const Color(0xFF1E3547) : const Color(0xFFE2F0F4);
+    final selectedBg = isDark
+        ? const Color(0xFF1E3547)
+        : const Color(0xFFE2F0F4);
     final unselectedBg = isDark ? const Color(0xFF142433) : Colors.white;
-    final selectedBorder = isDark ? const Color(0xFF4C8DAB) : const Color(0xFF4C8DAB);
-    final unselectedBorder = isDark ? const Color(0xFF2A3F53) : const Color(0xFFCBD5E1);
-    final selectedText = isDark ? const Color(0xFF75B9D1) : const Color(0xFF1E5B6E);
-    final unselectedText = isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155);
+    final selectedBorder = isDark
+        ? const Color(0xFF4C8DAB)
+        : const Color(0xFF4C8DAB);
+    final unselectedBorder = isDark
+        ? const Color(0xFF2A3F53)
+        : const Color(0xFFCBD5E1);
+    final selectedText = isDark
+        ? const Color(0xFF75B9D1)
+        : const Color(0xFF1E5B6E);
+    final unselectedText = isDark
+        ? const Color(0xFFCBD5E1)
+        : const Color(0xFF334155);
 
     return InkWell(
       onTap: onTap,
@@ -1153,9 +1319,14 @@ class _TimePickerBottomSheetState extends State<TimePickerBottomSheet> {
 }
 
 class AddAppointmentScreen extends StatefulWidget {
-  const AddAppointmentScreen({super.key, required this.database});
+  const AddAppointmentScreen({
+    super.key,
+    required this.database,
+    this.schedulerService,
+  });
 
   final AppDatabase database;
+  final ReminderSchedulerService? schedulerService;
 
   @override
   State<AddAppointmentScreen> createState() => _AddAppointmentScreenState();
@@ -1186,9 +1357,9 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
   Future<void> _next() async {
     final strings = S.of(context);
     if (_step == 0 && _nameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(strings.medicationNameRequired)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(strings.medicationNameRequired)));
       return;
     }
     if (_step == 1 && _localTimes.isEmpty) {
@@ -1201,7 +1372,7 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
       final strengthText = _strengthController.text.trim().isEmpty
           ? null
           : '${_strengthController.text.trim()} $_unit';
-      await widget.database.addMedicationWithReminders(
+      final medicationId = await widget.database.addMedicationWithReminders(
         name: _nameController.text.trim(),
         strength: strengthText,
         form: _form,
@@ -1211,6 +1382,7 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
         everyDay: _everyDay,
         activeDays: _everyDay ? 'all' : _selectedDays.join(','),
       );
+      await widget.schedulerService?.scheduleForMedication(medicationId);
       if (mounted) {
         Navigator.of(context).pop(true);
       }
@@ -1322,7 +1494,9 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
               decoration: BoxDecoration(
                 color: Theme.of(context).cardColor,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Theme.of(context).colorScheme.outline),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outline,
+                ),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
@@ -1348,22 +1522,56 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            _formChoice(context, strings.tablet, 'tablet', Icons.medication_rounded),
-            _formChoice(context, strings.capsule, 'capsule', Icons.medication_liquid_rounded),
-            _formChoice(context, strings.syrup, 'syrup', Icons.local_drink_rounded),
-            _formChoice(context, strings.injection, 'injection', Icons.vaccines_rounded),
-            _formChoice(context, strings.drops, 'drops', Icons.water_drop_rounded),
+            _formChoice(
+              context,
+              strings.tablet,
+              'tablet',
+              Icons.medication_rounded,
+            ),
+            _formChoice(
+              context,
+              strings.capsule,
+              'capsule',
+              Icons.medication_liquid_rounded,
+            ),
+            _formChoice(
+              context,
+              strings.syrup,
+              'syrup',
+              Icons.local_drink_rounded,
+            ),
+            _formChoice(
+              context,
+              strings.injection,
+              'injection',
+              Icons.vaccines_rounded,
+            ),
+            _formChoice(
+              context,
+              strings.drops,
+              'drops',
+              Icons.water_drop_rounded,
+            ),
           ],
         ),
       ],
     );
   }
 
-  Widget _formChoice(BuildContext context, String label, String value, IconData icon) {
+  Widget _formChoice(
+    BuildContext context,
+    String label,
+    String value,
+    IconData icon,
+  ) {
     final isSelected = _form == value;
     final scheme = Theme.of(context).colorScheme;
     return ChoiceChip(
-      avatar: Icon(icon, size: 18, color: isSelected ? scheme.onPrimary : scheme.primary),
+      avatar: Icon(
+        icon,
+        size: 18,
+        color: isSelected ? scheme.onPrimary : scheme.primary,
+      ),
       label: Text(label),
       selected: isSelected,
       onSelected: (_) => setState(() => _form = value),
@@ -1398,13 +1606,19 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
               children: [
                 if (_localTimes.length > 1)
                   IconButton(
-                    icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
+                    icon: const Icon(
+                      Icons.delete_outline_rounded,
+                      color: AppColors.error,
+                    ),
                     tooltip: 'حذف',
                     onPressed: () => setState(() => _localTimes.removeAt(i)),
                   )
                 else
                   const IconButton(
-                    icon: Icon(Icons.delete_outline_rounded, color: Colors.grey),
+                    icon: Icon(
+                      Icons.delete_outline_rounded,
+                      color: Colors.grey,
+                    ),
                     onPressed: null,
                   ),
                 const Spacer(),
@@ -1423,7 +1637,10 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
                     }
                   },
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 6,
+                    ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -1439,7 +1656,9 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
                         const SizedBox(width: 10),
                         Icon(
                           Icons.access_time_rounded,
-                          color: isDark ? AppColors.primaryDark : AppColors.primary,
+                          color: isDark
+                              ? AppColors.primaryDark
+                              : AppColors.primary,
                         ),
                       ],
                     ),
@@ -1454,7 +1673,9 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
           height: 52,
           child: OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
             onPressed: () async {
               final picked = await TimePickerBottomSheet.show(context);
@@ -1522,12 +1743,16 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
           children: [
             IconButton(
               iconSize: 32,
-              onPressed: () => setState(() => _quantity = _quantity > 0 ? _quantity - 1 : 0),
+              onPressed: () =>
+                  setState(() => _quantity = _quantity > 0 ? _quantity - 1 : 0),
               icon: const Icon(Icons.remove_circle_outline_rounded),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text('$_quantity', style: Theme.of(context).textTheme.headlineSmall),
+              child: Text(
+                '$_quantity',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
             ),
             IconButton(
               iconSize: 32,
@@ -1553,10 +1778,15 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
             children: [
               Text('${strings.alertThreshold}: '),
               IconButton(
-                onPressed: () => setState(() => _threshold = _threshold > 1 ? _threshold - 1 : 1),
+                onPressed: () => setState(
+                  () => _threshold = _threshold > 1 ? _threshold - 1 : 1,
+                ),
                 icon: const Icon(Icons.remove_rounded),
               ),
-              Text('$_threshold', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                '$_threshold',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               IconButton(
                 onPressed: () => setState(() => _threshold++),
                 icon: const Icon(Icons.add_rounded),
@@ -1595,14 +1825,14 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
                 children: [
                   Text(title, style: Theme.of(context).textTheme.bodyMedium),
                   const SizedBox(height: 2),
-                  Text(
-                    value,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
+                  Text(value, style: Theme.of(context).textTheme.titleMedium),
                 ],
               ),
             ),
-            const Icon(Icons.check_circle_rounded, color: AppColors.successIcon),
+            const Icon(
+              Icons.check_circle_rounded,
+              color: AppColors.successIcon,
+            ),
           ],
         ),
       ),
@@ -1739,7 +1969,8 @@ class _MedicationListViewState extends State<MedicationListView> {
                 sliver: SliverToBoxAdapter(
                   child: _LowStockCard(
                     title: strings.lowStockTitle,
-                    body: '${strings.lowStockBody} (${lowStockMedications.length})',
+                    body:
+                        '${strings.lowStockBody} (${lowStockMedications.length})',
                   ),
                 ),
               ),
@@ -1768,6 +1999,16 @@ class _MedicationListViewState extends State<MedicationListView> {
                       scheme: scheme,
                       lowStockLabel: strings.lowStockOnly,
                       remainingLabel: strings.remainingStock,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => MedicationDetailScreen(
+                              database: widget.database,
+                              medication: medication,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   );
                 },
@@ -1802,6 +2043,7 @@ class _MedicationCard extends StatelessWidget {
     required this.scheme,
     required this.lowStockLabel,
     required this.remainingLabel,
+    this.onTap,
   });
 
   final String name;
@@ -1811,60 +2053,67 @@ class _MedicationCard extends StatelessWidget {
   final ColorScheme scheme;
   final String lowStockLabel;
   final String remainingLabel;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final isLow = stock <= 7;
     final statusColor = isLow ? scheme.error : scheme.primary;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: scheme.outline),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: scheme.tertiary,
-                foregroundColor: scheme.primary,
-                child: Icon(getFormIcon(form)),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(name, style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 2),
-                    Text(
-                      strength,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ],
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: scheme.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: scheme.outline),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: scheme.tertiary,
+                  foregroundColor: scheme.primary,
+                  child: Icon(getFormIcon(form)),
                 ),
-              ),
-              const Icon(Icons.chevron_left_rounded),
-            ],
-          ),
-          const SizedBox(height: 12),
-          LinearProgressIndicator(
-            value: (stock / 100).clamp(0.0, 1.0),
-            backgroundColor: scheme.tertiary,
-            valueColor: AlwaysStoppedAnimation(statusColor),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            isLow ? '$lowStockLabel: $stock' : '$remainingLabel: $stock',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: isLow ? scheme.error : scheme.onSurfaceVariant,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        strength,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_left_rounded),
+              ],
             ),
-          ),
-        ],
+            const SizedBox(height: 12),
+            LinearProgressIndicator(
+              value: (stock / 100).clamp(0.0, 1.0),
+              backgroundColor: scheme.tertiary,
+              valueColor: AlwaysStoppedAnimation(statusColor),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              isLow ? '$lowStockLabel: $stock' : '$remainingLabel: $stock',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: isLow ? scheme.error : scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1875,10 +2124,16 @@ class HomeScreen extends StatefulWidget {
     super.key,
     required this.database,
     required this.onToggleLocale,
+    this.repository,
+    this.schedulerService,
+    this.scheduler,
   });
 
   final AppDatabase database;
   final VoidCallback onToggleLocale;
+  final DoseRepository? repository;
+  final ReminderSchedulerService? schedulerService;
+  final AlarmScheduler? scheduler;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -1887,17 +2142,136 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   DateTime _selectedDate = DateUtils.dateOnly(DateTime.now());
   int _selectedNavigation = 0;
+  late final DoseRepository _repository;
+  late Stream<List<TodayDose>> _dosesStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _repository =
+        widget.repository ??
+        DoseRepository(
+          database: widget.database,
+          scheduler: widget.scheduler ?? const NoOpAlarmScheduler(),
+        );
+    _dosesStream = _repository.watchDosesForLocalDate(_selectedDate);
+  }
+
+  @override
+  void didUpdateWidget(HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.repository != widget.repository ||
+        oldWidget.database != widget.database) {
+      _repository =
+          widget.repository ?? DoseRepository(database: widget.database);
+      _dosesStream = _repository.watchDosesForLocalDate(_selectedDate);
+    }
+  }
+
+  Future<void> _handleTake(DoseRecord dose) async {
+    final strings = S.of(context);
+    await _repository.take(dose);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(strings.doseLoggedTitle),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleSnooze(DoseRecord dose) async {
+    final strings = S.of(context);
+    await _repository.snooze(dose);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${strings.snoozed}: 10 دقائق'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleSkip(DoseRecord dose) async {
+    final strings = S.of(context);
+    await _repository.skip(dose);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(strings.missed),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  String _statusLabel(DoseStatus status, S strings) {
+    switch (status) {
+      case DoseStatus.pending:
+        return strings.upcoming;
+      case DoseStatus.taken:
+        return strings.taken;
+      case DoseStatus.snoozed:
+        return strings.snoozed;
+      case DoseStatus.missed:
+        return strings.missed;
+    }
+  }
+
+  Color _statusColor(DoseStatus status, ColorScheme scheme) {
+    switch (status) {
+      case DoseStatus.pending:
+        return scheme.primary;
+      case DoseStatus.taken:
+        return AppColors.successIcon;
+      case DoseStatus.snoozed:
+        return AppColors.warningText;
+      case DoseStatus.missed:
+        return scheme.error;
+    }
+  }
+
+  Color _statusBgColor(DoseStatus status, ColorScheme scheme) {
+    switch (status) {
+      case DoseStatus.pending:
+        return AppColors.primaryTint;
+      case DoseStatus.taken:
+        return AppColors.successBackground;
+      case DoseStatus.snoozed:
+        return AppColors.warningBackground;
+      case DoseStatus.missed:
+        return AppColors.errorBackground;
+    }
+  }
+
+  IconData _statusIcon(DoseStatus status) {
+    switch (status) {
+      case DoseStatus.pending:
+        return Icons.schedule_rounded;
+      case DoseStatus.taken:
+        return Icons.check_circle_rounded;
+      case DoseStatus.snoozed:
+        return Icons.snooze_rounded;
+      case DoseStatus.missed:
+        return Icons.cancel_rounded;
+    }
+  }
 
   Future<void> _openAddAppointment() async {
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
-        builder: (_) => AddAppointmentScreen(database: widget.database),
+        builder: (_) => AddAppointmentScreen(
+          database: widget.database,
+          schedulerService: widget.schedulerService,
+        ),
       ),
     );
     if (saved == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(S.of(context).appointmentSaved)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(S.of(context).appointmentSaved)));
     }
   }
 
@@ -1925,30 +2299,63 @@ class _HomeScreenState extends State<HomeScreen> {
                 database: widget.database,
                 onAddAppointment: _openAddAppointment,
               )
-            : StreamBuilder<List<ReminderWithMedication>>(
-                stream: widget.database.watchTodayReminders(),
+            : _selectedNavigation == 2
+            ? StreamBuilder<List<dynamic>>(
+                stream: widget.database.select(widget.database.doses).watch(),
                 builder: (context, snapshot) {
-                  final reminders = snapshot.data ?? [];
-                  final hasReminders = reminders.isNotEmpty;
+                  final rows = snapshot.data ?? [];
+                  final doses = rows
+                      .map((r) => doseRowToRecord(r as dynamic))
+                      .toList();
+                  final summary = summarizeAdherence(doses);
+                  return ReportsScreen(summary: summary);
+                },
+              )
+            : _selectedNavigation == 3
+            ? SettingsScreen(onToggleLocale: widget.onToggleLocale)
+            : StreamBuilder<List<TodayDose>>(
+                stream: _dosesStream,
+                builder: (context, snapshot) {
+                  final doses = snapshot.data ?? [];
+                  final hasReminders = doses.isNotEmpty;
+                  final totalCount = doses.length;
+                  final takenCount = doses
+                      .where((d) => d.dose.status == DoseStatus.taken)
+                      .length;
+                  final nextPending = doses
+                      .where(
+                        (d) =>
+                            d.dose.status == DoseStatus.pending ||
+                            d.dose.status == DoseStatus.snoozed,
+                      )
+                      .firstOrNull;
+                  final nextTime = nextPending != null
+                      ? formatTimeArabic(nextPending.reminder.localTime)
+                      : '--:--';
 
-                  // Group reminders
-                  final morningReminders = reminders.where((r) {
-                    final h = int.tryParse(r.reminder.localTime.split(':')[0]) ?? 0;
+                  // Group doses by time of day
+                  final morningDoses = doses.where((d) {
+                    final h =
+                        int.tryParse(d.reminder.localTime.split(':')[0]) ?? 0;
                     return h < 12;
                   }).toList();
 
-                  final afternoonReminders = reminders.where((r) {
-                    final h = int.tryParse(r.reminder.localTime.split(':')[0]) ?? 0;
+                  final afternoonDoses = doses.where((d) {
+                    final h =
+                        int.tryParse(d.reminder.localTime.split(':')[0]) ?? 0;
                     return h >= 12 && h < 17;
                   }).toList();
 
-                  final eveningReminders = reminders.where((r) {
-                    final h = int.tryParse(r.reminder.localTime.split(':')[0]) ?? 0;
+                  final eveningDoses = doses.where((d) {
+                    final h =
+                        int.tryParse(d.reminder.localTime.split(':')[0]) ?? 0;
                     return h >= 17;
                   }).toList();
 
-                  final hasLowStock = reminders.any(
-                    (r) => r.medication.stockQuantity <= r.medication.stockThreshold,
+                  final hasLowStock = doses.any(
+                    (d) =>
+                        d.medication.stockQuantity <=
+                        d.medication.stockThreshold,
                   );
 
                   return CustomScrollView(
@@ -1961,7 +2368,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               Text(
                                 greeting,
-                                style: Theme.of(context).textTheme.headlineMedium,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineMedium,
                               ),
                               const SizedBox(height: 4),
                               Text(
@@ -1980,8 +2389,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         sliver: SliverToBoxAdapter(
                           child: _WeekStrip(
                             selectedDate: _selectedDate,
-                            onSelect: (date) =>
-                                setState(() => _selectedDate = date),
+                            onSelect: (date) => setState(() {
+                              _selectedDate = date;
+                              _dosesStream = _repository.watchDosesForLocalDate(
+                                _selectedDate,
+                              );
+                            }),
                           ),
                         ),
                       ),
@@ -1991,10 +2404,17 @@ class _HomeScreenState extends State<HomeScreen> {
                           sliver: SliverToBoxAdapter(
                             child: _ProgressCard(
                               title: strings.dailyProgress,
-                              completedLabel: strings.completedDoses,
+                              completedLabel: strings.dailyProgressCount(
+                                takenCount,
+                                totalCount,
+                              ),
                               nextLabel: strings.nextDose,
-                              nextDose: formatTimeArabic(reminders.first.reminder.localTime),
+                              nextDose: nextTime,
                               primary: colors.primary,
+                              ratio: '$takenCount/$totalCount',
+                              progress: totalCount > 0
+                                  ? takenCount / totalCount
+                                  : 0.0,
                             ),
                           ),
                         ),
@@ -2005,75 +2425,146 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: _LowStockCard(
                                 title: strings.lowStockTitle,
                                 body: strings.lowStockBody,
+                                onTap: () =>
+                                    setState(() => _selectedNavigation = 1),
                               ),
                             ),
                           ),
-                        if (morningReminders.isNotEmpty)
+                        if (morningDoses.isNotEmpty)
                           SliverPadding(
                             padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
                             sliver: SliverList.list(
                               children: [
                                 _DoseSectionHeader(
                                   title: strings.morning,
-                                  count: '${morningReminders.length} جرعات',
+                                  count: strings.dosesCount(
+                                    morningDoses.length,
+                                  ),
                                   icon: Icons.wb_sunny_outlined,
                                 ),
-                                for (final r in morningReminders) ...[
+                                for (final d in morningDoses) ...[
                                   _DoseTile(
-                                    medication: r.medication.name,
-                                    detail: r.medication.strength ?? r.medication.form,
-                                    time: formatTimeArabic(r.reminder.localTime),
-                                    status: strings.upcoming,
-                                    statusColor: colors.primary,
-                                    icon: getFormIcon(r.medication.form),
+                                    medication: d.medication.name,
+                                    detail:
+                                        d.medication.strength ??
+                                        d.medication.form,
+                                    time: formatTimeArabic(
+                                      d.reminder.localTime,
+                                    ),
+                                    status: _statusLabel(
+                                      d.dose.status,
+                                      strings,
+                                    ),
+                                    statusColor: _statusColor(
+                                      d.dose.status,
+                                      colors,
+                                    ),
+                                    statusBackgroundColor: _statusBgColor(
+                                      d.dose.status,
+                                      colors,
+                                    ),
+                                    statusIcon: _statusIcon(d.dose.status),
+                                    icon: getFormIcon(d.medication.form),
+                                    isActionable:
+                                        d.dose.status == DoseStatus.pending ||
+                                        d.dose.status == DoseStatus.snoozed,
+                                    onTake: () => _handleTake(d.dose),
+                                    onSnooze: () => _handleSnooze(d.dose),
+                                    onSkip: () => _handleSkip(d.dose),
                                   ),
                                   const SizedBox(height: 12),
                                 ],
                               ],
                             ),
                           ),
-                        if (afternoonReminders.isNotEmpty)
+                        if (afternoonDoses.isNotEmpty)
                           SliverPadding(
                             padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
                             sliver: SliverList.list(
                               children: [
                                 _DoseSectionHeader(
                                   title: strings.afternoon,
-                                  count: '${afternoonReminders.length} جرعات',
+                                  count: strings.dosesCount(
+                                    afternoonDoses.length,
+                                  ),
                                   icon: Icons.wb_twilight_outlined,
                                 ),
-                                for (final r in afternoonReminders) ...[
+                                for (final d in afternoonDoses) ...[
                                   _DoseTile(
-                                    medication: r.medication.name,
-                                    detail: r.medication.strength ?? r.medication.form,
-                                    time: formatTimeArabic(r.reminder.localTime),
-                                    status: strings.upcoming,
-                                    statusColor: colors.primary,
-                                    icon: getFormIcon(r.medication.form),
+                                    medication: d.medication.name,
+                                    detail:
+                                        d.medication.strength ??
+                                        d.medication.form,
+                                    time: formatTimeArabic(
+                                      d.reminder.localTime,
+                                    ),
+                                    status: _statusLabel(
+                                      d.dose.status,
+                                      strings,
+                                    ),
+                                    statusColor: _statusColor(
+                                      d.dose.status,
+                                      colors,
+                                    ),
+                                    statusBackgroundColor: _statusBgColor(
+                                      d.dose.status,
+                                      colors,
+                                    ),
+                                    statusIcon: _statusIcon(d.dose.status),
+                                    icon: getFormIcon(d.medication.form),
+                                    isActionable:
+                                        d.dose.status == DoseStatus.pending ||
+                                        d.dose.status == DoseStatus.snoozed,
+                                    onTake: () => _handleTake(d.dose),
+                                    onSnooze: () => _handleSnooze(d.dose),
+                                    onSkip: () => _handleSkip(d.dose),
                                   ),
                                   const SizedBox(height: 12),
                                 ],
                               ],
                             ),
                           ),
-                        if (eveningReminders.isNotEmpty)
+                        if (eveningDoses.isNotEmpty)
                           SliverPadding(
                             padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
                             sliver: SliverList.list(
                               children: [
                                 _DoseSectionHeader(
                                   title: strings.evening,
-                                  count: '${eveningReminders.length} جرعات',
+                                  count: strings.dosesCount(
+                                    eveningDoses.length,
+                                  ),
                                   icon: Icons.nightlight_outlined,
                                 ),
-                                for (final r in eveningReminders) ...[
+                                for (final d in eveningDoses) ...[
                                   _DoseTile(
-                                    medication: r.medication.name,
-                                    detail: r.medication.strength ?? r.medication.form,
-                                    time: formatTimeArabic(r.reminder.localTime),
-                                    status: strings.upcoming,
-                                    statusColor: colors.primary,
-                                    icon: getFormIcon(r.medication.form),
+                                    medication: d.medication.name,
+                                    detail:
+                                        d.medication.strength ??
+                                        d.medication.form,
+                                    time: formatTimeArabic(
+                                      d.reminder.localTime,
+                                    ),
+                                    status: _statusLabel(
+                                      d.dose.status,
+                                      strings,
+                                    ),
+                                    statusColor: _statusColor(
+                                      d.dose.status,
+                                      colors,
+                                    ),
+                                    statusBackgroundColor: _statusBgColor(
+                                      d.dose.status,
+                                      colors,
+                                    ),
+                                    statusIcon: _statusIcon(d.dose.status),
+                                    icon: getFormIcon(d.medication.form),
+                                    isActionable:
+                                        d.dose.status == DoseStatus.pending ||
+                                        d.dose.status == DoseStatus.snoozed,
+                                    onTake: () => _handleTake(d.dose),
+                                    onSnooze: () => _handleSnooze(d.dose),
+                                    onSkip: () => _handleSkip(d.dose),
                                   ),
                                   const SizedBox(height: 12),
                                 ],
@@ -2138,76 +2629,146 @@ class _WeekStrip extends StatelessWidget {
   final DateTime selectedDate;
   final ValueChanged<DateTime> onSelect;
 
+  static const List<String> _arabicDays = [
+    'الأحد',
+    'الإثنين',
+    'الثلاثاء',
+    'الأربعاء',
+    'الخميس',
+    'الجمعة',
+    'السبت',
+  ];
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final locale = Localizations.localeOf(context).languageCode;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final today = DateUtils.dateOnly(DateTime.now());
+
+    // Sunday of the current week (Sunday = index 0, Saturday = index 6)
+    final daysFromSunday = today.weekday % 7;
+    final sunday = today.subtract(Duration(days: daysFromSunday));
     final days = List<DateTime>.generate(
-      6,
-      (index) => today.add(Duration(days: index)),
+      7,
+      (index) => sunday.add(Duration(days: index)),
     );
 
     return SizedBox(
       height: 84,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: days.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
+      child: Row(
+        children: List.generate(7, (index) {
           final date = days[index];
-          final selected = DateUtils.isSameDay(date, selectedDate);
-          final dayName = DateFormat('EEE', locale).format(date);
-          return Semantics(
-            button: true,
-            selected: selected,
-            label: '$dayName ${date.day}',
-            child: GestureDetector(
-              onTap: () => onSelect(date),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                width: 72,
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                decoration: BoxDecoration(
-                  color: selected
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: selected
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.outline,
+          final isSelected = DateUtils.isSameDay(date, selectedDate);
+          final isToday = DateUtils.isSameDay(date, today);
+          final dayName = isArabic
+              ? _arabicDays[index]
+              : DateFormat('EEE').format(date);
+
+          // Visual styling:
+          // Selected: Solid primary
+          // Today (not selected): Highlighted tint background + primary border + dot
+          // Other: Neutral surface
+          Color backgroundColor;
+          Color borderColor;
+          Color textColor;
+          Color numberColor;
+
+          if (isSelected) {
+            backgroundColor = theme.colorScheme.primary;
+            borderColor = theme.colorScheme.primary;
+            textColor = Colors.white;
+            numberColor = Colors.white;
+          } else if (isToday) {
+            backgroundColor = AppColors.primaryTint;
+            borderColor = theme.colorScheme.primary;
+            textColor = theme.colorScheme.primary;
+            numberColor = theme.colorScheme.primary;
+          } else {
+            backgroundColor = theme.colorScheme.surface;
+            borderColor = theme.colorScheme.outline.withValues(alpha: 0.5);
+            textColor = theme.colorScheme.onSurfaceVariant;
+            numberColor = theme.colorScheme.onSurface;
+          }
+
+          return Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: index == 0 ? 0 : 3,
+                right: index == 6 ? 0 : 3,
+              ),
+              child: Semantics(
+                button: true,
+                selected: isSelected,
+                label: '$dayName ${date.day}${isToday ? ' (اليوم)' : ''}',
+                child: GestureDetector(
+                  onTap: () => onSelect(date),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: backgroundColor,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: borderColor,
+                        width: (isSelected || isToday) ? 1.5 : 1.0,
+                      ),
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: theme.colorScheme.primary.withValues(
+                                  alpha: 0.25,
+                                ),
+                                blurRadius: 6,
+                                offset: const Offset(0, 3),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          dayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: textColor,
+                            fontSize: 11,
+                            fontWeight: (isSelected || isToday)
+                                ? FontWeight.w700
+                                : FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${date.day}',
+                          style: TextStyle(
+                            color: numberColor,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        if (isToday) ...[
+                          const SizedBox(height: 3),
+                          Container(
+                            width: 5,
+                            height: 5,
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? Colors.white
+                                  : theme.colorScheme.primary,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      dayName,
-                      style: TextStyle(
-                        color: selected
-                            ? Colors.white
-                            : theme.colorScheme.onSurfaceVariant,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    Text(
-                      '${date.day}',
-                      style: TextStyle(
-                        color: selected
-                            ? Colors.white
-                            : theme.colorScheme.onSurface,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ),
           );
-        },
+        }),
       ),
     );
   }
@@ -2220,6 +2781,8 @@ class _ProgressCard extends StatelessWidget {
     required this.nextLabel,
     required this.nextDose,
     required this.primary,
+    this.ratio = '0/0',
+    this.progress = 0.0,
   });
 
   final String title;
@@ -2227,6 +2790,8 @@ class _ProgressCard extends StatelessWidget {
   final String nextLabel;
   final String nextDose;
   final Color primary;
+  final String ratio;
+  final double progress;
 
   @override
   Widget build(BuildContext context) {
@@ -2252,14 +2817,14 @@ class _ProgressCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(title, style: Theme.of(context).textTheme.titleMedium),
-              Text('1/3', style: Theme.of(context).textTheme.titleMedium),
+              Text(ratio, style: Theme.of(context).textTheme.titleMedium),
             ],
           ),
           const SizedBox(height: 14),
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
-              value: 0.33,
+              value: progress.clamp(0.0, 1.0),
               minHeight: 10,
               backgroundColor: scheme.tertiary,
               valueColor: AlwaysStoppedAnimation(primary),
@@ -2291,6 +2856,12 @@ class _DoseTile extends StatelessWidget {
     required this.status,
     required this.statusColor,
     required this.icon,
+    this.statusIcon,
+    this.statusBackgroundColor,
+    this.onTake,
+    this.onSnooze,
+    this.onSkip,
+    this.isActionable = false,
   });
 
   final String medication;
@@ -2299,51 +2870,202 @@ class _DoseTile extends StatelessWidget {
   final String status;
   final Color statusColor;
   final IconData icon;
+  final IconData? statusIcon;
+  final Color? statusBackgroundColor;
+  final VoidCallback? onTake;
+  final VoidCallback? onSnooze;
+  final VoidCallback? onSkip;
+  final bool isActionable;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final strings = S.of(context);
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: scheme.outline),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outline.withValues(alpha: 0.6)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: scheme.tertiary,
-            foregroundColor: scheme.primary,
-            child: Icon(icon),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  medication,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 4),
-                Text(detail, style: Theme.of(context).textTheme.bodySmall),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(time, style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 4),
-              Text(status, style: TextStyle(color: statusColor, fontSize: 12)),
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryTint,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: AppColors.primary, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      medication,
+                      style: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700, fontSize: 16),
+                    ),
+                    const SizedBox(height: 4),
+                    if (detail.isNotEmpty)
+                      Text(
+                        detail,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          fontSize: 13,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    time,
+                    style: TextStyle(
+                      color: scheme.onSurface,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color:
+                          statusBackgroundColor ??
+                          statusColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (statusIcon != null) ...[
+                          Icon(statusIcon, size: 13, color: statusColor),
+                          const SizedBox(width: 4),
+                        ],
+                        Text(
+                          status,
+                          style: TextStyle(
+                            color: statusColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
+          if (isActionable) ...[
+            const SizedBox(height: 14),
+            Divider(height: 1, color: scheme.outline.withValues(alpha: 0.4)),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: SizedBox(
+                    height: 40,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      onPressed: onTake,
+                      icon: const Icon(Icons.check_rounded, size: 18),
+                      label: Text(
+                        strings.takenAction,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 2,
+                  child: SizedBox(
+                    height: 40,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        side: BorderSide(
+                          color: AppColors.primary.withValues(alpha: 0.6),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      onPressed: onSnooze,
+                      icon: const Icon(Icons.snooze_rounded, size: 16),
+                      label: const Text(
+                        '10 د',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ] else if (status.contains('أخذ') ||
+              status.contains('taken') ||
+              status.contains('Taken')) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const Icon(
+                  Icons.check_circle_rounded,
+                  size: 14,
+                  color: Color(0xFF16A34A),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'تم أخذ الجرعة بنجاح',
+                  style: TextStyle(
+                    color: const Color(0xFF16A34A),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
   }
 }
-

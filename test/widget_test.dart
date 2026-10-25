@@ -1,4 +1,4 @@
-﻿// This is a basic Flutter widget test.
+// This is a basic Flutter widget test.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -7,13 +7,20 @@ import 'package:medication_reminder/main.dart';
 
 /// Helper: pump the splash timer and settle into onboarding.
 Future<void> _advancePastSplash(WidgetTester tester) async {
-  await tester.pump(const Duration(milliseconds: 1600));
+  await tester.pump(const Duration(milliseconds: 4600));
   await tester.pumpAndSettle();
 }
 
+/// Helper: unmount the app tree and flush Drift's zero-duration stream cancellation timers.
+Future<void> _teardownApp(WidgetTester tester) async {
+  await tester.pumpWidget(const SizedBox());
+  await tester.pump(const Duration(milliseconds: 10));
+}
+
 void main() {
-  testWidgets('renders the Arabic welcome screen and auto-navigates',
-      (WidgetTester tester) async {
+  testWidgets('renders the Arabic welcome screen and auto-navigates', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(MyApp(database: AppDatabase.forTesting()));
     await tester.pump();
 
@@ -62,6 +69,7 @@ void main() {
     await tester.tap(find.text('حفظ'));
     await tester.pumpAndSettle();
     expect(find.text('الصباح'), findsOneWidget);
+    await _teardownApp(tester);
   });
 
   testWidgets('renders the today screen after permissions', (
@@ -88,6 +96,7 @@ void main() {
 
     expect(find.text('لا توجد مواعيد مضافة'), findsOneWidget);
     expect(find.text('إضافة موعد'), findsOneWidget);
+    await _teardownApp(tester);
   });
 
   testWidgets('supports onboarding back and skip actions', (
@@ -114,7 +123,6 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('لاحقًا'));
     await tester.pumpAndSettle();
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.pumpAndSettle();
+    await _teardownApp(tester);
   });
 }
