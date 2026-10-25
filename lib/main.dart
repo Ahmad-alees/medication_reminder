@@ -2654,7 +2654,7 @@ class _WeekStrip extends StatelessWidget {
     );
 
     return SizedBox(
-      height: 84,
+      height: 88,
       child: Row(
         children: List.generate(7, (index) {
           final date = days[index];
@@ -2704,7 +2704,7 @@ class _WeekStrip extends StatelessWidget {
                   onTap: () => onSelect(date),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 6),
                     decoration: BoxDecoration(
                       color: backgroundColor,
                       borderRadius: BorderRadius.circular(14),
