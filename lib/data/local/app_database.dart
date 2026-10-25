@@ -184,19 +184,50 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  Future<Dose?> findDose(int reminderId, DateTime scheduledAtUtc) {
+    return (select(doses)..where(
+          (row) =>
+              row.reminderId.equals(reminderId) &
+              row.scheduledAtUtc.equals(scheduledAtUtc),
+        ))
+        .getSingleOrNull();
+  }
+
   Future<void> upsertDoseEvent(DoseRecord record) async {
-    await into(doses).insertOnConflictUpdate(
-      DosesCompanion.insert(
-        reminderId: record.reminderId,
-        scheduledAtUtc: record.scheduledAtUtc,
-        utcOffsetMinutes: record.utcOffsetMinutes,
-        status: record.status.storageValue,
-        actedAtUtc: Value(record.actedAtUtc),
-        unansweredRepeatCount: Value(record.unansweredRepeatCount),
-        escalationSent: Value(record.escalationSent),
-        nextAlarmAtUtc: Value(record.nextAlarmAtUtc),
-      ),
-    );
+    await transaction(() async {
+      final existing =
+          await (select(doses)..where(
+                (row) =>
+                    row.reminderId.equals(record.reminderId) &
+                    row.scheduledAtUtc.equals(record.scheduledAtUtc),
+              ))
+              .getSingleOrNull();
+
+      if (existing != null) {
+        await (update(doses)..where((row) => row.id.equals(existing.id))).write(
+          DosesCompanion(
+            status: Value(record.status.storageValue),
+            actedAtUtc: Value(record.actedAtUtc),
+            unansweredRepeatCount: Value(record.unansweredRepeatCount),
+            escalationSent: Value(record.escalationSent),
+            nextAlarmAtUtc: Value(record.nextAlarmAtUtc),
+          ),
+        );
+      } else {
+        await into(doses).insert(
+          DosesCompanion.insert(
+            reminderId: record.reminderId,
+            scheduledAtUtc: record.scheduledAtUtc,
+            utcOffsetMinutes: record.utcOffsetMinutes,
+            status: record.status.storageValue,
+            actedAtUtc: Value(record.actedAtUtc),
+            unansweredRepeatCount: Value(record.unansweredRepeatCount),
+            escalationSent: Value(record.escalationSent),
+            nextAlarmAtUtc: Value(record.nextAlarmAtUtc),
+          ),
+        );
+      }
+    });
   }
 
   Future<void> decrementStockForReminder(int reminderId) async {
@@ -209,9 +240,34 @@ class AppDatabase extends _$AppDatabase {
     final nextQuantity = medication.stockQuantity > 0
         ? medication.stockQuantity - 1
         : 0;
-    await (update(medications)
-          ..where((row) => row.id.equals(medication.id)))
+    await (update(medications)..where((row) => row.id.equals(medication.id)))
         .write(MedicationsCompanion(stockQuantity: Value(nextQuantity)));
+  }
+
+  Future<void> refillStock(int medicationId, int additionalStock) async {
+    final medication = await (select(
+      medications,
+    )..where((row) => row.id.equals(medicationId))).getSingle();
+    final nextQuantity = medication.stockQuantity + additionalStock;
+    await (update(medications)..where((row) => row.id.equals(medicationId)))
+        .write(MedicationsCompanion(stockQuantity: Value(nextQuantity)));
+  }
+
+  Future<void> deleteMedication(int medicationId) async {
+    return transaction(() async {
+      await (delete(
+        reminders,
+      )..where((row) => row.medicationId.equals(medicationId))).go();
+      await (delete(
+        medications,
+      )..where((row) => row.id.equals(medicationId))).go();
+    });
+  }
+
+  Future<List<Reminder>> getRemindersForMedication(int medicationId) {
+    return (select(
+      reminders,
+    )..where((row) => row.medicationId.equals(medicationId))).get();
   }
 }
 
@@ -219,12 +275,12 @@ DoseRecord doseRowToRecord(Dose row) {
   return DoseRecord(
     id: row.id,
     reminderId: row.reminderId,
-    scheduledAtUtc: row.scheduledAtUtc,
+    scheduledAtUtc: row.scheduledAtUtc.toUtc(),
     utcOffsetMinutes: row.utcOffsetMinutes,
     status: DoseStatusCodec.fromStorage(row.status),
-    actedAtUtc: row.actedAtUtc,
+    actedAtUtc: row.actedAtUtc?.toUtc(),
     unansweredRepeatCount: row.unansweredRepeatCount,
     escalationSent: row.escalationSent,
-    nextAlarmAtUtc: row.nextAlarmAtUtc,
+    nextAlarmAtUtc: row.nextAlarmAtUtc?.toUtc(),
   );
 }

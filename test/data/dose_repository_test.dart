@@ -35,8 +35,8 @@ void main() {
     expect(stored, hasLength(1));
     expect(stored.single.status, DoseStatus.taken.storageValue);
 
-    final medication = (await database.select(database.medications).get())
-        .single;
+    final medication =
+        (await database.select(database.medications).get()).single;
     expect(medication.stockQuantity, 9);
   });
 }

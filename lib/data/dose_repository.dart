@@ -1,3 +1,5 @@
+import 'package:drift/drift.dart';
+
 import '../core/clock.dart';
 import '../domain/models/dose_record.dart';
 import '../domain/models/dose_status.dart';
@@ -33,7 +35,32 @@ class DoseRepository {
   final DoseStateMachine _stateMachine;
 
   Stream<List<TodayDose>> watchDosesForLocalDate(DateTime localDate) {
-    return _database.watchTodayReminders().asyncMap((reminders) async {
+    final query = _database.select(_database.reminders).join([
+      innerJoin(
+        _database.medications,
+        _database.medications.id.equalsExp(_database.reminders.medicationId),
+      ),
+      leftOuterJoin(
+        _database.doses,
+        _database.doses.reminderId.equalsExp(_database.reminders.id),
+      ),
+    ])..orderBy([OrderingTerm.asc(_database.reminders.localTime)]);
+
+    return query.watch().asyncMap((rows) async {
+      final seenReminderIds = <int>{};
+      final reminders = <ReminderWithMedication>[];
+      for (final row in rows) {
+        final r = row.readTable(_database.reminders);
+        if (seenReminderIds.add(r.id)) {
+          reminders.add(
+            ReminderWithMedication(
+              reminder: r,
+              medication: row.readTable(_database.medications),
+            ),
+          );
+        }
+      }
+
       final storedRows = await _database.select(_database.doses).get();
       final stored = storedRows.map(doseRowToRecord).toList();
       final offset = localDate.timeZoneOffset.inMinutes;
@@ -68,8 +95,15 @@ class DoseRepository {
     });
   }
 
+  Future<DoseRecord?> getDose(int reminderId, DateTime scheduledAtUtc) async {
+    final row = await _database.findDose(reminderId, scheduledAtUtc);
+    return row == null ? null : doseRowToRecord(row);
+  }
+
   Future<DoseRecord> take(DoseRecord dose) async {
-    final result = _stateMachine.take(dose, _clock.nowUtc());
+    final existing = await getDose(dose.reminderId, dose.scheduledAtUtc);
+    final current = existing ?? dose;
+    final result = _stateMachine.take(current, _clock.nowUtc());
     if (!result.changed) return result.dose;
     await _database.upsertDoseEvent(result.dose);
     await _database.decrementStockForReminder(result.dose.reminderId);
@@ -78,7 +112,9 @@ class DoseRepository {
   }
 
   Future<DoseRecord> snooze(DoseRecord dose) async {
-    final result = _stateMachine.snooze(dose, _clock.nowUtc());
+    final existing = await getDose(dose.reminderId, dose.scheduledAtUtc);
+    final current = existing ?? dose;
+    final result = _stateMachine.snooze(current, _clock.nowUtc());
     if (!result.changed) return result.dose;
     await _database.upsertDoseEvent(result.dose);
     await _scheduler.replace(result.dose);
@@ -86,7 +122,9 @@ class DoseRepository {
   }
 
   Future<DoseRecord> skip(DoseRecord dose) async {
-    final result = _stateMachine.markMissed(dose, _clock.nowUtc());
+    final existing = await getDose(dose.reminderId, dose.scheduledAtUtc);
+    final current = existing ?? dose;
+    final result = _stateMachine.markMissed(current, _clock.nowUtc());
     if (!result.changed) return result.dose;
     await _database.upsertDoseEvent(result.dose);
     await _scheduler.cancel(result.dose);
@@ -96,7 +134,7 @@ class DoseRepository {
   DoseRecord _overlay(DoseRecord generated, List<DoseRecord> stored) {
     for (final row in stored) {
       if (row.reminderId == generated.reminderId &&
-          row.scheduledAtUtc == generated.scheduledAtUtc) {
+          row.scheduledAtUtc.isAtSameMomentAs(generated.scheduledAtUtc)) {
         return row;
       }
     }

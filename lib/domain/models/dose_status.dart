@@ -1,10 +1,5 @@
 /// Documented Dose Status values from docs/glossary.md.
-enum DoseStatus {
-  pending,
-  taken,
-  snoozed,
-  missed,
-}
+enum DoseStatus { pending, taken, snoozed, missed }
 
 extension DoseStatusCodec on DoseStatus {
   String get storageValue => name;

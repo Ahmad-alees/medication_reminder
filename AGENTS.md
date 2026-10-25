@@ -144,3 +144,9 @@ dart format . && flutter analyze     # zero warnings
 - After each task state: what changed, what was tested (and how), what could **not** be verified, any risk to reminder reliability.
 - Concise Markdown, no filler. If unsure or blocked, stop and say so.
 - Context hygiene: read only relevant files; summarize decisions when a session gets long; record stable decisions here, not in chat.
+
+## 14. Planned follow-ups (requires approval per rules)
+- Stock tracking enhancement and refill flow hardening (already partially implemented in `lib/features`).
+- Offline adherence reports sync (opt-in anonymous stats) — pending backend choice (Firebase vs Supabase) and payload approval.
+- Real-device verification of alarms, reboot, battery saver, time-zone changes before claiming reliability.
+

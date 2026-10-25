@@ -60,9 +60,7 @@ void main() {
     expect(dose.escalationSent, isTrue);
     expect(escalationCount, 1);
 
-    final lateClock = FakeClock(
-      scheduled.add(ReminderConstants.missedCutoff),
-    );
+    final lateClock = FakeClock(scheduled.add(ReminderConstants.missedCutoff));
     final missed = machine.onUnanswered(dose, lateClock.nowUtc());
     expect(missed.dose.status, DoseStatus.missed);
   });
